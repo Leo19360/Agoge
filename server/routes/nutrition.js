@@ -1,4 +1,5 @@
 const express = require('express');
+const https = require('https');
 const db = require('../db');
 const { authMiddleware } = require('./auth');
 
@@ -194,35 +195,122 @@ router.put('/water-goal', async (req, res) => {
 });
 
 // ---- RECHERCHE LOCALE D'ALIMENTS (table aliments) ----
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { Accept: 'application/json' } }, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(new Error('Réponse OpenFoodFacts invalide'));
+          }
+        } else {
+          reject(new Error('OpenFoodFacts indisponible'));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.setTimeout(8000, () => {
+      req.destroy(new Error('Timeout OpenFoodFacts'));
+    });
+  });
+}
+
+async function searchOpenFoodFacts(q, limit) {
+  const url = new URL('https://world.openfoodfacts.org/cgi/search.pl');
+  url.searchParams.set('search_terms', q);
+  url.searchParams.set('search_simple', '1');
+  url.searchParams.set('action', 'process');
+  url.searchParams.set('json', '1');
+  url.searchParams.set('lc', 'fr');
+  url.searchParams.set('cc', 'FR');
+  url.searchParams.set('page_size', String(limit));
+  url.searchParams.set('fields', 'code,product_name,generic_name,brands,quantity,image_front_url,nutriments,ingredients_text_fr,allergens_from_ingredients,nutriscore_grade,nova_group');
+
+  const payload = await fetchJson(url.toString());
+  const products = Array.isArray(payload.products) ? payload.products : [];
+
+  return products
+    .map((p) => {
+      const name = (p.product_name || p.generic_name || '').trim();
+      if (!name) return null;
+      const nutriments = p.nutriments || {};
+      const energy = nutriments['energy-kcal_100g'] ?? nutriments.energy_100g ?? nutriments.energy ?? 0;
+      const calories = Number(energy) || 0;
+      const proteins = Number(nutriments.proteins_100g || 0);
+      const carbs = Number(nutriments.carbohydrates_100g || 0);
+      const fats = Number(nutriments.fat_100g || 0);
+      const fibers = Number(nutriments.fiber_100g || 0);
+      const sugars = Number(nutriments.sugars_100g || 0);
+      const salt = Number(nutriments.salt_100g || 0);
+      const sodium = Number(nutriments.sodium_100g || 0);
+      return {
+        id: p.code || p._id,
+        name,
+        brands: p.brands || '',
+        quantity: p.quantity || '',
+        image: p.image_front_url || '',
+        calories,
+        proteins,
+        carbs,
+        fats,
+        fibers,
+        sugars,
+        salt,
+        sodium,
+        nutriscore: p.nutriscore_grade || '',
+        nova: p.nova_group || null,
+        ingredients: p.ingredients_text_fr || '',
+        allergens: p.allergens_from_ingredients || '',
+        liquid: /ml|cl|l\b/i.test(p.quantity || ''),
+        _remote: true
+      };
+    })
+    .filter(Boolean);
+}
+
 router.get('/search', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q) return res.json([]);
     const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
 
-    // Recherche textuelle sur product_name et generic_name
-    const like = `%${q}%`;
-    const rows = await db.all(
-      `SELECT code as id, product_name as name, generic_name, brands, quantity,
-              image_url as image, energy_kcal_100g as calories,
-              proteins_100g as proteins, carbohydrates_100g as carbs,
-              fat_100g as fats, fiber_100g as fibers, sugars_100g as sugars,
-              salt_100g as salt, sodium_100g as sodium,
-              nutriscore_grade as nutriscore, nova_group as nova,
-              ingredients_text as ingredients, allergens
-       FROM aliments
-       WHERE product_name LIKE ? OR generic_name LIKE ? OR brands LIKE ?
-       LIMIT ?`,
-      like, like, like, limit
-    );
+    try {
+      const like = `%${q}%`;
+      const rows = await db.all(
+        `SELECT code as id, product_name as name, generic_name, brands, quantity,
+                image_url as image, energy_kcal_100g as calories,
+                proteins_100g as proteins, carbohydrates_100g as carbs,
+                fat_100g as fats, fiber_100g as fibers, sugars_100g as sugars,
+                salt_100g as salt, sodium_100g as sodium,
+                nutriscore_grade as nutriscore, nova_group as nova,
+                ingredients_text as ingredients, allergens
+         FROM aliments
+         WHERE product_name LIKE ? OR generic_name LIKE ? OR brands LIKE ?
+         LIMIT ?`,
+        like, like, like, limit
+      );
 
-    res.json(rows.map(r => ({
-      ...r,
-      _local: true,
-      liquid: r.quantity ? /ml|cl|l\b/i.test(r.quantity) : false
-    })));
+      if (rows && rows.length) {
+        return res.json(rows.map(r => ({
+          ...r,
+          _local: true,
+          liquid: r.quantity ? /ml|cl|l\b/i.test(r.quantity) : false
+        })));
+      }
+    } catch (dbError) {
+      // ignore and fallback to OpenFoodFacts
+    }
+
+    const remoteResults = await searchOpenFoodFacts(q, limit);
+    return res.json(remoteResults);
   } catch (e) {
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ error: 'Recherche impossible pour le moment. Réessaie dans quelques secondes.' });
   }
 });
 

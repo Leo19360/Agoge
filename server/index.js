@@ -31,12 +31,24 @@ function listenWithFallback(port) {
   });
 }
 
-// Initialise la base de données MySQL puis démarre le serveur
-db.init()
-  .then(() => listenWithFallback(DEFAULT_PORT))
-  .catch((err) => {
-    console.error('❌ Impossible de se connecter à MySQL :', err.message);
-    console.error('Vérifie que MySQL (Laragon) est démarré et que les identifiants sont corrects.');
+// Démarre le serveur même si la base n'est pas encore disponible,
+// afin d'éviter un crash total en production si MySQL met un peu de temps à répondre.
+async function startServer() {
+  try {
+    await db.init();
+    console.log('✅ Base de données prête');
+  } catch (err) {
+    console.error('⚠️ Impossible de se connecter à MySQL au démarrage :', err.message);
+    console.warn('Le serveur continuera malgré cela et les routes API répondront avec une erreur si la base reste indisponible.');
+  }
+
+  try {
+    await listenWithFallback(DEFAULT_PORT);
+  } catch (err) {
+    console.error('❌ Impossible de démarrer le serveur :', err.message);
     process.exit(1);
-  });
+  }
+}
+
+startServer();
 

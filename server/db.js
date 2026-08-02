@@ -1,21 +1,60 @@
 /* ============================================
    AGOGE - Connexion MySQL
-   Compatible local (Laragon) ET cloud (Netlify)
+   Compatible local (Laragon) et cloud (Render/Aiven)
    ============================================ */
 const mysql = require('mysql2/promise');
+const { URL } = require('url');
 
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
 const DB_USER = process.env.DB_USER || 'root';
 const DB_PASSWORD = process.env.DB_PASSWORD || '';
 const DB_NAME = process.env.DB_NAME || 'agoge';
-// En cloud (Netlify), activez le chiffrement SSL si le provider le demande
-const DB_SSL = process.env.DB_SSL === 'true' || process.env.DB_SSL === '1';
+const DATABASE_URL = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_DATABASE_URL || '';
 
 function sslConfig() {
-  if (!DB_SSL) return undefined;
+  const shouldUseSsl =
+    process.env.DB_SSL === 'true' ||
+    process.env.DB_SSL === '1' ||
+    process.env.AIVEN_SSL === 'true' ||
+    process.env.AIVEN_SSL === '1' ||
+    /(?:^|[?&])(ssl|sslmode)=/i.test(DATABASE_URL);
+
+  if (!shouldUseSsl) return undefined;
   return {
-    rejectUnauthorized: false // accepte les certificats auto-signés des providers cloud
+    rejectUnauthorized: false
+  };
+}
+
+function getConnectionConfig(options = {}) {
+  const { includeDatabase = true } = options;
+  const ssl = sslConfig();
+
+  if (DATABASE_URL) {
+    try {
+      const parsedUrl = new URL(DATABASE_URL);
+      const databaseName = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, '')) || DB_NAME;
+
+      return {
+        host: parsedUrl.hostname || DB_HOST,
+        port: parseInt(parsedUrl.port || DB_PORT, 10),
+        user: decodeURIComponent(parsedUrl.username || DB_USER),
+        password: decodeURIComponent(parsedUrl.password || DB_PASSWORD),
+        ...(includeDatabase ? { database: databaseName } : {}),
+        ...(ssl ? { ssl } : {})
+      };
+    } catch (err) {
+      console.warn('⚠️ DATABASE_URL invalide, utilisation des variables DB_* :', err.message);
+    }
+  }
+
+  return {
+    host: DB_HOST,
+    port: DB_PORT,
+    user: DB_USER,
+    password: DB_PASSWORD,
+    ...(includeDatabase ? { database: DB_NAME } : {}),
+    ...(ssl ? { ssl } : {})
   };
 }
 
@@ -26,17 +65,13 @@ let pool = null;
 
 function getPool() {
   if (!pool) {
+    const config = getConnectionConfig();
     pool = mysql.createPool({
-      host: DB_HOST,
-      port: DB_PORT,
-      user: DB_USER,
-      password: DB_PASSWORD,
-      database: DB_NAME,
+      ...config,
       waitForConnections: true,
       connectionLimit: 10,
       charset: 'utf8mb4_unicode_ci',
-      dateStrings: true,
-      ...(sslConfig() ? { ssl: sslConfig() } : {})
+      dateStrings: true
     });
   }
   return pool;
@@ -47,14 +82,13 @@ function getPool() {
 // on continue — la base doit alors être créée manuellement.
 async function ensureDatabase() {
   try {
+    const config = getConnectionConfig({ includeDatabase: false });
     const conn = await mysql.createConnection({
-      host: DB_HOST,
-      port: DB_PORT,
-      user: DB_USER,
-      password: DB_PASSWORD,
-      ...(sslConfig() ? { ssl: sslConfig() } : {})
+      ...config,
+      database: undefined
     });
-    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    const databaseName = (DATABASE_URL ? new URL(DATABASE_URL).pathname.replace(/^\/+/, '') : DB_NAME) || DB_NAME;
+    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await conn.end();
   } catch (e) {
     console.warn('⚠️  ensureDatabase ignoré (privilèges insuffisants en cloud) :', e.message);

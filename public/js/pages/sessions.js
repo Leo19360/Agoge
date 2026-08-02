@@ -374,7 +374,8 @@ const SessionsPage = (() => {
             nb_sets: ex.nb_sets || (ex.sets ? ex.sets.length : 3),
             rest_seconds: ex.rest_seconds || 90,
             target_reps: (ex.sets && ex.sets[0] && ex.sets[0].target_reps) || '',
-            weight: (ex.sets && ex.sets[0] && ex.sets[0].target_weight) || 0
+            weight: (ex.sets && ex.sets[0] && ex.sets[0].target_weight) || 0,
+            sets: (ex.sets || []).map((set) => ({ target_reps: set.target_reps || '' }))
           });
         });
       }
@@ -507,13 +508,13 @@ const SessionsPage = (() => {
       <h3>Nouveau programme <button class="modal-close" onclick="closeModal()">✕</button></h3>
       <div class="modal-field">
         <label>Nom du programme</label>
-        <input type="text" id="new-program-name" placeholder="Push day, Jambes, Full body..." value="">
+        <input type="text" id="new-program-name" placeholder="Jambes, Push day..." value="">
       </div>
       <div class="section-title" style="font-size:15px">Exercices</div>
       <div id="exercise-builder"></div>
       <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">➕ Ajouter un exercice</button>
       <div style="height:12px"></div>
-      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveCreate()">💾 Créer le programme</button>
+      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveCreate()">✅ Créer le programme</button>
     `);
     addExerciseBuilder();
   }
@@ -523,35 +524,42 @@ const SessionsPage = (() => {
     if (!box) return;
     const div = document.createElement('div');
     div.className = 'exercise-builder';
+    const setTargets = Array.isArray(data.sets) && data.sets.length ? data.sets : [{ target_reps: data.target_reps || '' }, { target_reps: '' }, { target_reps: '' }];
+
     div.innerHTML = `
       <div class="eb-header">
         <input type="text" placeholder="Nom de l'exercice" class="eb-name" value="${escapeHtml(data.name || '')}">
         <button class="eb-remove" onclick="this.parentElement.parentElement.remove()">✕</button>
       </div>
       <div class="eb-group">
-        <label style="font-size:12px;color:var(--text-dim)">Groupe musculaire</label>
         <select class="eb-muscle">
-          <option value="">— Choisir —</option>
+          <option value="">— Groupe musculaire —</option>
           ${MUSCLE_GROUPS.map((g) => `<option value="${g}" ${data.muscle_group === g ? 'selected' : ''}>${g}</option>`).join('')}
         </select>
       </div>
       <div class="eb-sets">
         <div>
-          <label style="font-size:12px;color:var(--text-dim)">Séries</label>
-          <input type="number" min="1" value="${data.nb_sets || 3}" class="eb-sets-count">
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--text-dim)">Repos (s)</label>
+          <label>Repos</label>
           <input type="number" min="0" value="${data.rest_seconds || 90}" class="eb-rest">
         </div>
+        <div>
+          <label>Poids départ</label>
+          <input type="number" step="0.5" min="0" value="${data.weight || 20}" class="eb-weight-input" placeholder="20">
+        </div>
       </div>
-      <div class="eb-target">
-        <label style="font-size:12px;color:var(--text-dim)">Objectif par série (ex: 8-10)</label>
-        <input type="text" class="eb-target-reps" placeholder="6-8" value="${escapeHtml(data.target_reps || '')}">
-      </div>
-      <div class="eb-weight">
-        <label style="font-size:12px;color:var(--text-dim)">Poids de départ (kg)</label>
-        <input type="number" step="0.5" min="0" value="${data.weight || 20}" class="eb-weight-input">
+      <div class="eb-set-grid">
+        <div class="eb-set-cell">
+          <label>1re série</label>
+          <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[0] && setTargets[0].target_reps !== undefined ? setTargets[0].target_reps : '')}">
+        </div>
+        <div class="eb-set-cell">
+          <label>2e série</label>
+          <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[1] && setTargets[1].target_reps !== undefined ? setTargets[1].target_reps : '')}">
+        </div>
+        <div class="eb-set-cell">
+          <label>3e série</label>
+          <input type="text" class="eb-set-reps" placeholder="12" value="${escapeHtml(setTargets[2] && setTargets[2].target_reps !== undefined ? setTargets[2].target_reps : '')}">
+        </div>
       </div>
     `;
     box.appendChild(div);
@@ -564,11 +572,30 @@ const SessionsPage = (() => {
       const exName = b.querySelector('.eb-name').value.trim();
       if (!exName) return;
       const muscle_group = b.querySelector('.eb-muscle').value;
-      const nbSets = parseInt(b.querySelector('.eb-sets-count').value) || 3;
       const rest = parseInt(b.querySelector('.eb-rest').value) || 90;
-      const target_reps = b.querySelector('.eb-target-reps').value.trim() || null;
       const weight = parseFloat(b.querySelector('.eb-weight-input').value) || 0;
-      exercises.push({ name: exName, muscle_group, nb_sets: nbSets, rest_seconds: rest, target_reps, weight });
+      const setInputs = Array.from(b.querySelectorAll('.eb-set-reps'));
+      const sets = setInputs.map((input, index) => {
+        const value = input.value.trim();
+        return {
+          set_number: index + 1,
+          target_reps: value || null,
+          target_weight: weight || 0
+        };
+      }).filter((set) => set.target_reps !== null);
+
+      exercises.push({
+        name: exName,
+        muscle_group,
+        nb_sets: sets.length || 3,
+        rest_seconds: rest,
+        weight,
+        sets: sets.length ? sets : [
+          { set_number: 1, target_reps: null, target_weight: weight || 0 },
+          { set_number: 2, target_reps: null, target_weight: weight || 0 },
+          { set_number: 3, target_reps: null, target_weight: weight || 0 }
+        ]
+      });
     });
     return exercises;
   }

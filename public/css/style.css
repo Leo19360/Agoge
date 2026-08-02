@@ -1259,19 +1259,116 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
 }
 
 /* ---- Builder d'exercice (création de programme) ---- */
+.quick-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.preset-chip {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.exercise-builder {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  margin-bottom: 10px;
+}
+
+.exercise-builder .eb-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.exercise-builder .eb-header input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.exercise-builder .eb-remove {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 16px;
+}
+
 .exercise-builder .eb-group {
   margin-bottom: 8px;
 }
 
 .exercise-builder .eb-group select {
   width: 100%;
-  padding: 9px 11px;
-  margin-top: 3px;
+  padding: 10px 12px;
   background: var(--bg-input);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
+  outline: none;
+}
+
+.exercise-builder .eb-sets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.exercise-builder .eb-sets div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exercise-builder .eb-sets label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.exercise-builder .eb-set-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.exercise-builder .eb-set-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exercise-builder .eb-set-cell label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.exercise-builder .eb-set-cell input,
+.exercise-builder .eb-sets input,
+.exercise-builder .eb-target input,
+.exercise-builder .eb-weight input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
   outline: none;
 }
 
@@ -1280,17 +1377,24 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   margin-top: 8px;
 }
 
-.exercise-builder .eb-target input,
-.exercise-builder .eb-weight input {
-  width: 100%;
-  padding: 9px 11px;
-  margin-top: 3px;
-  background: var(--bg-input);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
+@media (max-width: 700px) {
+  .quick-presets {
+    gap: 6px;
+  }
+
+  .preset-chip {
+    flex: 1 1 calc(50% - 6px);
+    justify-content: center;
+    text-align: center;
+  }
+
+  .exercise-builder {
+    padding: 8px;
+  }
+
+  .exercise-builder .eb-set-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================

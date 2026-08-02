@@ -5,8 +5,35 @@ const API = (() => {
   const BASE = '';
   const OFFS = 'https://world.openfoodfacts.org/cgi/search.pl';
 
+  function getConfiguredApiBase() {
+    if (typeof window === 'undefined' || !window) return null;
+    const candidates = [
+      window.__AGOGE_API_URL__,
+      window.__AGOGE_API_BASE__,
+      window.__AGOGE_BACKEND_URL__,
+      new URLSearchParams(window.location.search).get('apiUrl')
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const value = String(candidate).trim();
+      if (!value) continue;
+      try {
+        const parsed = new URL(value);
+        return parsed.origin + (parsed.pathname && parsed.pathname !== '/' ? parsed.pathname.replace(/\/$/, '') : '');
+      } catch (e) {
+        return value.replace(/\/$/, '');
+      }
+    }
+
+    return null;
+  }
+
   function getApiOrigins() {
     const origins = [];
+    const configuredBase = getConfiguredApiBase();
+    if (configuredBase) origins.push(configuredBase);
+
     if (typeof window !== 'undefined' && window.location) {
       const rawOrigin = window.location.origin;
       if (rawOrigin && rawOrigin !== 'null') {
@@ -29,6 +56,20 @@ const API = (() => {
     return Array.from(new Set(origins.filter(Boolean)));
   }
 
+  function getApiUrls(path) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const configuredBase = getConfiguredApiBase();
+    if (configuredBase) {
+      const normalizedBase = configuredBase.replace(/\/$/, '');
+      if (/\/api$/i.test(normalizedBase) && /^\/api/i.test(normalizedPath)) {
+        return [`${normalizedBase}${normalizedPath.replace(/^\/api/i, '')}`];
+      }
+      return [`${normalizedBase}${normalizedPath}`];
+    }
+
+    return getApiOrigins().map((origin) => `${origin}${normalizedPath}`);
+  }
+
   function getToken() {
     return localStorage.getItem('agoge_token') || null;
   }
@@ -44,14 +85,14 @@ const API = (() => {
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const fetchOptions = { ...options, headers };
-    const origins = getApiOrigins();
+    const urls = getApiUrls(path);
 
     let lastError = null;
-    for (let index = 0; index < origins.length; index += 1) {
-      const origin = origins[index];
+    for (let index = 0; index < urls.length; index += 1) {
+      const url = urls[index];
       try {
         if (!navigator.onLine) throw new Error('offline');
-        const res = await fetch(`${origin}${path}`, fetchOptions);
+        const res = await fetch(url, fetchOptions);
         if (res.status === 401) {
           setToken(null);
           window.dispatchEvent(new CustomEvent('agoge:logout'));
@@ -94,11 +135,11 @@ const API = (() => {
 
   // ---- AUTH ----
   async function register(data) {
-    const origins = getApiOrigins();
+    const urls = getApiUrls('/api/auth/register');
     let lastError = null;
-    for (let index = 0; index < origins.length; index += 1) {
+    for (let index = 0; index < urls.length; index += 1) {
       try {
-        const res = await fetch(`${origins[index]}/api/auth/register`, {
+        const res = await fetch(urls[index], {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
@@ -125,11 +166,11 @@ const API = (() => {
   }
 
   async function login(data) {
-    const origins = getApiOrigins();
+    const urls = getApiUrls('/api/auth/login');
     let lastError = null;
-    for (let index = 0; index < origins.length; index += 1) {
+    for (let index = 0; index < urls.length; index += 1) {
       try {
-        const res = await fetch(`${origins[index]}/api/auth/login`, {
+        const res = await fetch(urls[index], {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
@@ -199,11 +240,11 @@ const API = (() => {
     removeMeasurement: (id) => request(`/api/body/measurements/${id}`, { method: 'DELETE' }),
     photos: () => request('/api/body/photos', {}, true),
     uploadPhoto: async (formData) => {
-      const origins = getApiOrigins();
+      const urls = getApiUrls('/api/body/photos');
       let lastError = null;
-      for (let index = 0; index < origins.length; index += 1) {
+      for (let index = 0; index < urls.length; index += 1) {
         try {
-          const res = await fetch(`${origins[index]}/api/body/photos`, {
+          const res = await fetch(urls[index], {
             method: 'POST',
             headers: { Authorization: `Bearer ${getToken()}` },
             body: formData
