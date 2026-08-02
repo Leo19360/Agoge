@@ -168,21 +168,30 @@ const SessionsPage = (() => {
     // Objectif prévu : ex "2x 6-8 reps + 1x 12 reps"
     if (ex.sets && ex.sets.length) {
       const parts = ex.sets.map((s, i) => {
-        const tr = s.target_reps || ex.target_reps;
-        return `${s.set_number}x ${tr || (s.target_weight ? num(s.target_weight) + 'kg' : '—')}`;
+        return `S${s.set_number} ${formatSetTarget(s)}`;
       });
       return parts.join(' + ');
     }
     return '';
   }
 
+  function formatSetTarget(set) {
+    const reps = set.target_reps || '';
+    const weight = set.target_weight !== undefined && set.target_weight !== null && set.target_weight !== ''
+      ? num(set.target_weight)
+      : null;
+
+    if (reps && weight !== null && weight > 0) return `${reps}x ${weight}kg`;
+    if (reps) return `${reps} reps`;
+    if (weight !== null && weight > 0) return `${weight}kg`;
+    return '—';
+  }
+
   function setPillLabel(set) {
     if (set.reps > 0 || set.weight > 0) {
-      return `${set.reps || '—'}x ${num(set.weight)}`;
+      return `${set.reps || '—'}x ${num(set.weight)}kg`;
     }
-    if (set.target_reps) return `${set.target_reps} —`;
-    if (set.target_weight > 0) return `—x ${num(set.target_weight)}`;
-    return `—x —`;
+    return formatSetTarget(set);
   }
 
   function exHtml(ex) {
@@ -375,7 +384,10 @@ const SessionsPage = (() => {
             rest_seconds: ex.rest_seconds || 90,
             target_reps: (ex.sets && ex.sets[0] && ex.sets[0].target_reps) || '',
             weight: (ex.sets && ex.sets[0] && ex.sets[0].target_weight) || 0,
-            sets: (ex.sets || []).map((set) => ({ target_reps: set.target_reps || '' }))
+            sets: (ex.sets || []).map((set) => ({
+              target_reps: set.target_reps || '',
+              target_weight: set.target_weight !== undefined ? set.target_weight : (set.weight || 0)
+            }))
           });
         });
       }
@@ -524,7 +536,13 @@ const SessionsPage = (() => {
     if (!box) return;
     const div = document.createElement('div');
     div.className = 'exercise-builder';
-    const setTargets = Array.isArray(data.sets) && data.sets.length ? data.sets : [{ target_reps: data.target_reps || '' }, { target_reps: '' }, { target_reps: '' }];
+    const setTargets = Array.isArray(data.sets) && data.sets.length
+      ? data.sets
+      : [
+          { target_reps: data.target_reps || '', target_weight: data.weight || '' },
+          { target_reps: '', target_weight: data.weight || '' },
+          { target_reps: '', target_weight: data.weight || '' }
+        ];
 
     div.innerHTML = `
       <div class="eb-header">
@@ -543,7 +561,7 @@ const SessionsPage = (() => {
           <input type="number" min="0" value="${data.rest_seconds || 90}" class="eb-rest">
         </div>
         <div>
-          <label>Poids départ</label>
+          <label>Poids maximal</label>
           <input type="number" step="0.5" min="0" value="${data.weight || 20}" class="eb-weight-input" placeholder="20">
         </div>
       </div>
@@ -551,14 +569,20 @@ const SessionsPage = (() => {
         <div class="eb-set-cell">
           <label>1re série</label>
           <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[0] && setTargets[0].target_reps !== undefined ? setTargets[0].target_reps : '')}">
+          <label>Poids de la série</label>
+          <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="30" value="${escapeHtml(setTargets[0] && setTargets[0].target_weight !== undefined ? setTargets[0].target_weight : (data.weight || ''))}">
         </div>
         <div class="eb-set-cell">
           <label>2e série</label>
           <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[1] && setTargets[1].target_reps !== undefined ? setTargets[1].target_reps : '')}">
+          <label>Poids de la série</label>
+          <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="20" value="${escapeHtml(setTargets[1] && setTargets[1].target_weight !== undefined ? setTargets[1].target_weight : (data.weight || ''))}">
         </div>
         <div class="eb-set-cell">
           <label>3e série</label>
           <input type="text" class="eb-set-reps" placeholder="12" value="${escapeHtml(setTargets[2] && setTargets[2].target_reps !== undefined ? setTargets[2].target_reps : '')}">
+          <label>Poids de la série</label>
+          <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="16" value="${escapeHtml(setTargets[2] && setTargets[2].target_weight !== undefined ? setTargets[2].target_weight : (data.weight || ''))}">
         </div>
       </div>
     `;
@@ -575,14 +599,17 @@ const SessionsPage = (() => {
       const rest = parseInt(b.querySelector('.eb-rest').value) || 90;
       const weight = parseFloat(b.querySelector('.eb-weight-input').value) || 0;
       const setInputs = Array.from(b.querySelectorAll('.eb-set-reps'));
+      const weightInputs = Array.from(b.querySelectorAll('.eb-set-weight'));
       const sets = setInputs.map((input, index) => {
         const value = input.value.trim();
+        const setWeightValue = weightInputs[index] ? parseFloat(weightInputs[index].value) : NaN;
+        const setWeight = Number.isFinite(setWeightValue) ? setWeightValue : weight;
         return {
           set_number: index + 1,
           target_reps: value || null,
-          target_weight: weight || 0
+          target_weight: setWeight || 0
         };
-      }).filter((set) => set.target_reps !== null);
+      }).filter((set) => set.target_reps !== null || set.target_weight > 0);
 
       exercises.push({
         name: exName,
