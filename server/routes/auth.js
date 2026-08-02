@@ -19,26 +19,8 @@ function getSecret() {
   return JWT_SECRET;
 }
 
-// Rate limiting simple (mémoire) : max 5 tentatives par IP en 15 min
-const rateLimitStore = new Map();
-const RATE_WINDOW = 15 * 60 * 1000;
-const RATE_MAX = 5;
-function rateLimit(ip) {
-  const now = Date.now();
-  const entry = rateLimitStore.get(ip) || { count: 0, resetAt: now + RATE_WINDOW };
-  if (now > entry.resetAt) {
-    entry.count = 0;
-    entry.resetAt = now + RATE_WINDOW;
-  }
-  entry.count++;
-  rateLimitStore.set(ip, entry);
-  // Nettoie les entrées périmées toutes les 100 requêtes
-  if (rateLimitStore.size > 100) {
-    for (const [key, val] of rateLimitStore) {
-      if (Date.now() > val.resetAt) rateLimitStore.delete(key);
-    }
-  }
-  if (entry.count > RATE_MAX) return true;
+// Rate limiting désactivé temporairement pour éviter les blocages inutiles
+function rateLimit() {
   return false;
 }
 
@@ -77,20 +59,21 @@ function validateOptionalInt(val, min, max) {
 // Inscription enrichie
 router.post('/register', async (req, res) => {
   const { email, password, password_confirm, name, first_name, birth_date, sex, age, height, weight, goal } = req.body;
+  const normalizedPassword = String(password || '').trim();
+  const confirmedPassword = String(password_confirm === undefined ? password : password_confirm || '').trim();
 
-  // Rate limiting
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  if (rateLimit(ip)) {
+  // Rate limiting désactivé
+  if (rateLimit()) {
     return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 minutes' });
   }
 
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'Email, mot de passe et nom sont requis' });
   }
-  if (password !== password_confirm) {
+  if (normalizedPassword !== confirmedPassword) {
     return res.status(400).json({ error: 'Les mots de passe ne correspondent pas' });
   }
-  if (!passwordPolicyOk(password)) {
+  if (!passwordPolicyOk(normalizedPassword)) {
     return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre' });
   }
   try {
@@ -104,7 +87,7 @@ router.post('/register', async (req, res) => {
     const validHeight = validateOptionalInt(height, 100, 250);
     const validSex = ['male', 'female', 'M', 'F', 'homme', 'femme', null, undefined, ''].includes(sex) ? (sex || null) : null;
 
-    const hash = bcrypt.hashSync(password, 10);
+    const hash = bcrypt.hashSync(normalizedPassword, 10);
     const info = await db.run(
       `INSERT INTO users (email, password_hash, name, first_name, birth_date, sex, age, height, goal)
        VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -128,9 +111,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
-  // Rate limiting
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  if (rateLimit(ip)) {
+  // Rate limiting désactivé
+  if (rateLimit()) {
     return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 minutes' });
   }
 
@@ -142,8 +124,6 @@ router.post('/login', async (req, res) => {
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
-    // Réinitialise le compteur de rate limiting en cas de succès
-    rateLimitStore.delete(ip);
     res.json({ token: signToken(user), user: cleanUser(user) });
   } catch (e) {
     res.status(500).json({ error: 'Erreur serveur' });

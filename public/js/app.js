@@ -7,13 +7,30 @@ const App = (() => {
 
   // ---------- INIT ----------
   async function init() {
-    // Register service worker
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '0.0.0.0' || window.location.protocol === 'file:';
+
+    // Service worker disabled locally to avoid stale assets and fake network errors.
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
-        console.log('SW registered', reg);
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+        if (!isLocalHost) {
+          const reg = await navigator.serviceWorker.register('/sw.js');
+          console.log('SW registered', reg);
+          await reg.update();
+        }
       } catch (e) {
         console.log('SW registration failed', e);
+      }
+    }
+
+    // Force-refresh stale frontend assets on first load
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      } catch (e) {
+        console.log('Cache clear failed', e);
       }
     }
 
@@ -115,14 +132,23 @@ const App = (() => {
     // Register
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = document.getElementById('register-name').value;
-      const email = document.getElementById('register-email').value;
+      const name = document.getElementById('register-name').value.trim();
+      const email = document.getElementById('register-email').value.trim();
       const password = document.getElementById('register-password').value;
+      const passwordConfirm = document.getElementById('register-password-confirm').value;
+      const normalizedPassword = String(password).trim();
+      const normalizedPasswordConfirm = String(passwordConfirm).trim();
       const age = parseInt(document.getElementById('register-age').value) || null;
       const height = parseInt(document.getElementById('register-height').value) || null;
       const goal = document.getElementById('register-goal').value;
+
+      if (normalizedPassword !== normalizedPasswordConfirm) {
+        showAuthError('Les mots de passe ne correspondent pas');
+        return;
+      }
+
       try {
-        const result = await API.register({ name, email, password, age, height, goal });
+        const result = await API.register({ name, email, password: normalizedPassword, password_confirm: normalizedPasswordConfirm, age, height, goal });
         document.getElementById('auth-error').classList.add('hidden');
         ThemeManager.init(result.user || null);
         showApp();

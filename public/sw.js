@@ -1,5 +1,5 @@
 /* AGOGE Service Worker - PWA offline support */
-const CACHE_NAME = 'agoge-v5';
+const CACHE_NAME = 'agoge-v7';
 const ASSETS = [
   '/',
   '/index.html',
@@ -34,42 +34,45 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch : stratégie cache-first pour les assets, network-first pour les API
+function cacheResponse(request, response) {
+  return caches.open(CACHE_NAME).then((cache) => {
+    cache.put(request, response.clone());
+    return response;
+  });
+}
+
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => cacheResponse(request, response))
+    .catch(() => caches.match(request));
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    if (cached) return cached;
+    return fetch(request).then((response) => cacheResponse(request, response));
+  });
+}
+
+// Fetch : stratégie network-first pour le frontend, avec fallback cache pour les API et assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  const isApi = url.pathname.startsWith('/api/');
+  const isDocument = event.request.mode === 'navigate' || event.request.destination === 'document';
+  const isFrontendAsset = ['script', 'style', 'manifest', 'image'].includes(event.request.destination)
+    || ['/index.html', '/logo.png', '/manifest.json'].includes(url.pathname);
 
-  // API requests : network-first avec fallback cache
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+  if (isApi) {
+    event.respondWith(networkFirst(event.request));
     return;
   }
 
-  // Static assets : cache-first
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
-    );
+  if (isDocument || isFrontendAsset) {
+    event.respondWith(networkFirst(event.request).catch(() => caches.match('/index.html')));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      });
-    })
-  );
+  event.respondWith(cacheFirst(event.request));
 });
 
 // Sync : synchronise les actions hors-ligne quand le réseau revient

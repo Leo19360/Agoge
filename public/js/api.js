@@ -6,17 +6,27 @@ const API = (() => {
   const OFFS = 'https://world.openfoodfacts.org/cgi/search.pl';
 
   function getApiOrigins() {
-    const origins = new Set();
-    if (typeof window !== 'undefined' && window.location && window.location.origin) {
-      origins.add(window.location.origin);
-    }
+    const origins = [];
     if (typeof window !== 'undefined' && window.location) {
+      const rawOrigin = window.location.origin;
+      if (rawOrigin && rawOrigin !== 'null') {
+        origins.push(rawOrigin);
+      }
+
       const host = window.location.hostname || 'localhost';
-      if (host === 'localhost' || host === '127.0.0.1') {
-        ['3000', '3001', '3002'].forEach((port) => origins.add(`http://${host}:${port}`));
+      const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(host)
+        || host.endsWith('.test')
+        || host.endsWith('.local')
+        || host.endsWith('.localhost')
+        || window.location.protocol === 'file:';
+
+      if (isLocalHost) {
+        const fallback = ['http://localhost:3001', 'http://127.0.0.1:3001'];
+        fallback.forEach((origin) => origins.push(origin));
       }
     }
-    return Array.from(origins);
+
+    return Array.from(new Set(origins.filter(Boolean)));
   }
 
   function getToken() {
@@ -92,13 +102,23 @@ const API = (() => {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Erreur');
+        const text = await res.text();
+        let json = {};
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          json = {};
+        }
+        if (!res.ok) throw new Error(json.error || 'Erreur serveur');
         setToken(json.token);
         return json;
       } catch (e) {
         lastError = e;
-        if (index < origins.length - 1 && (e.message === 'Failed to fetch' || /404|405/.test(e.message))) continue;
+        const message = e && e.message ? e.message : '';
+        if (index < origins.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
+          continue;
+        }
+        break;
       }
     }
     throw lastError || new Error('Erreur réseau');
@@ -113,13 +133,23 @@ const API = (() => {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Erreur');
+        const text = await res.text();
+        let json = {};
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          json = {};
+        }
+        if (!res.ok) throw new Error(json.error || 'Erreur serveur');
         setToken(json.token);
         return json;
       } catch (e) {
         lastError = e;
-        if (index < origins.length - 1 && (e.message === 'Failed to fetch' || /404|405/.test(e.message))) continue;
+        const message = e && e.message ? e.message : '';
+        if (index < origins.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
+          continue;
+        }
+        break;
       }
     }
     throw lastError || new Error('Erreur réseau');
