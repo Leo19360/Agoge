@@ -52,13 +52,13 @@ const SessionsPage = (() => {
           <div class="program-bar"><div class="program-bar-fill" style="width:${progPct(s)}%"></div></div>
           <div class="program-meta">${s.nb_exercises || 0} exercices • ${s.nb_sets || 0} séries</div>
           <div class="quick-actions" style="margin-top:10px">
-            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.open(${s.id})">▶️ Ouvrir</button>
-            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.editProgram(${s.id})">✏️ Modifier</button>
-            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.deleteProgram(${s.id})">🗑️ Supprimer</button>
-            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.completeProgramFromList(${s.id})">✅ Terminer</button>
+            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.open(${s.id})">${agogeIcon('play')} Ouvrir</button>
+            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.editProgram(${s.id})">${agogeIcon('edit')} Modifier</button>
+            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.deleteProgram(${s.id})">${agogeIcon('trash')} Supprimer</button>
+            <button class="quick-action" onclick="event.stopPropagation(); SessionsPage.completeProgramFromList(${s.id})">${agogeIcon('check')} Terminer</button>
           </div>
         </div>
-      `).join('') : '<div class="empty-state">Aucun programme pour le moment. Crée ton premier programme permanent et commence dès aujourd\'hui 💪</div>';
+      `).join('') : `<div class="empty-state">Aucun programme pour le moment. Crée ton premier programme permanent et commence dès aujourd'hui ${agogeIcon('dumbbell')}</div>`;
 
       const historyItems = history.length ? history.map((s) => `
         <div class="session-list-item" onclick="SessionsPage.openHistory(${s.id})">
@@ -71,26 +71,26 @@ const SessionsPage = (() => {
       `).join('') : '<div class="empty-state">Aucune séance terminée pour le moment. Quand tu auras fini une session, elle apparaîtra ici.</div>';
 
       container.innerHTML = `
-        <div class="page-title">💪 Séances</div>
+        <div class="page-title">${agogeIcon('dumbbell')} Séances</div>
         <div class="page-subtitle">Tes programmes permanents, réutilisables sans te compliquer la vie.</div>
 
         <div class="hero-card">
           <div class="hero-title">Routine simple</div>
           <div class="hero-subtitle">Crée un programme, coche tes exercices au fil de la séance et termine proprement quand tu as fini.</div>
           <div class="quick-actions">
-            <button class="quick-action" onclick="SessionsPage.createModal()">➕ Nouveau programme</button>
-            <button class="quick-action" onclick="SessionsPage.renderList()">🔄 Actualiser</button>
+            <button class="quick-action" onclick="SessionsPage.createModal()">${agogeIcon('gym')} Nouveau programme</button>
+            <button class="quick-action" onclick="SessionsPage.renderList()">${agogeIcon('arrowsRotate')} Actualiser</button>
           </div>
         </div>
 
         <button class="btn btn-primary btn-block btn-lg" onclick="SessionsPage.createModal()">
-          ➕ Créer un programme
+          ${agogeIcon('gym')} Créer un programme
         </button>
 
-        <div class="section-title">📋 Mes programmes</div>
+        <div class="section-title">${agogeIcon('clipboard')} Mes programmes</div>
         ${programItems}
 
-        <div class="section-title">📜 Historique</div>
+        <div class="section-title">${agogeIcon('list')} Historique</div>
         ${historyItems}
 
         <div style="height:24px"></div>
@@ -98,7 +98,7 @@ const SessionsPage = (() => {
     } catch (e) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="color:var(--danger)">⚠️ Erreur</div>
+          <div class="card-title" style="color:var(--danger)">${agogeIcon('warning')} Erreur</div>
           <p class="card-subtitle">${escapeHtml(e.message)}</p>
         </div>
       `;
@@ -210,8 +210,8 @@ const SessionsPage = (() => {
           ${max > 0 ? `<div class="ex-max" title="Charge max soulevée">MAX ${num(max)}</div>` : ''}
         </div>
         <div class="ex-actions">
-          <button class="btn btn-sm btn-outline" onclick="SessionsPage.weightModal(${ex.id}, '${escapeHtml(ex.name)}')">⚖️ Poids</button>
-          <button class="btn btn-sm btn-outline" onclick="SessionsPage.startRest(${ex.rest_seconds || 90}, '${escapeHtml(ex.name)}')">⏱️ Repos</button>
+          <button class="btn btn-sm btn-outline" onclick="SessionsPage.weightModal(${ex.id}, '${escapeHtml(ex.name)}')">${agogeIcon('weightScale')} Poids</button>
+          <button class="btn btn-sm btn-outline" onclick="SessionsPage.startRest(${ex.rest_seconds || 90}, '${escapeHtml(ex.name)}')">${agogeIcon('stopwatch')} Repos</button>
         </div>
         <div class="set-pills">${pills}</div>
       </div>
@@ -237,9 +237,9 @@ const SessionsPage = (() => {
         <button class="icon-btn" title="Quitter / mettre en pause" onclick="SessionsPage.renderList()">←</button>
         <div class="workout-title">${escapeHtml(s.name)}</div>
         <div style="display:flex;gap:6px">
-          <button class="icon-btn" title="Modifier le programme" onclick="SessionsPage.editProgram(${s.id})">✏️</button>
-          <button class="icon-btn" title="Supprimer le programme" onclick="SessionsPage.deleteProgram(${s.id})">🗑️</button>
-          <button class="icon-btn" title="Réinitialiser la progression" onclick="SessionsPage.resetProgram()">↺</button>
+          <button class="icon-btn" title="Modifier le programme" onclick="SessionsPage.editProgram(${s.id})">${agogeIcon('edit')}</button>
+          <button class="icon-btn" title="Supprimer le programme" onclick="SessionsPage.deleteProgram(${s.id})">${agogeIcon('trash')}</button>
+          <button class="icon-btn" title="Réinitialiser la progression" onclick="SessionsPage.resetProgram()">${agogeIcon('arrowsRotate')}</button>
         </div>
       </div>
 
@@ -251,7 +251,7 @@ const SessionsPage = (() => {
       ${groupsHtml}
 
       <button class="btn btn-success btn-block btn-lg" style="margin-top:16px" onclick="SessionsPage.completeProgram()">
-        ✅ Terminer la séance
+        ${agogeIcon('check')} Terminer la séance
       </button>
 
       <div style="height:24px"></div>
@@ -269,7 +269,7 @@ const SessionsPage = (() => {
         renderWorkout();
       }
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -300,7 +300,7 @@ const SessionsPage = (() => {
         <label>Objectif (reps prévues)</label>
         <input type="text" id="set-target-reps" value="${set.target_reps || ''}" placeholder="8-10">
       </div>
-      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveSet(${set.id})">💾 Enregistrer</button>
+      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveSet(${set.id})">${agogeIcon('save')} Enregistrer</button>
     `);
   }
 
@@ -313,7 +313,7 @@ const SessionsPage = (() => {
       closeModal();
       await open(currentProgram.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -325,13 +325,13 @@ const SessionsPage = (() => {
     if (!ex) return;
     const current = maxWeight(ex) || (ex.sets[0] && ex.sets[0].target_weight) || '';
     showModal(`
-      <h3>⚖️ Poids par défaut <button class="modal-close" onclick="closeModal()">✕</button></h3>
+      <h3>${agogeIcon('weightScale')} Poids par défaut <button class="modal-close" onclick="closeModal()">✕</button></h3>
       <p class="card-subtitle">${escapeHtml(exName)} — pré-remplit les prochaines séries</p>
       <div class="modal-field">
         <label>Poids (kg)</label>
         <input type="number" id="def-weight" step="0.5" min="0" value="${current}" placeholder="20">
       </div>
-      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveDefaultWeight(${exId})">💾 Appliquer</button>
+      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveDefaultWeight(${exId})">${agogeIcon('save')} Appliquer</button>
     `);
   }
 
@@ -340,10 +340,10 @@ const SessionsPage = (() => {
     try {
       await API.sessions.updateExercise(exId, { default_weight: w });
       closeModal();
-      showToast('⚖️ Poids appliqué aux prochaines séries');
+      showToast(`${agogeIcon('weightScale')} Poids appliqué aux prochaines séries`);
       await open(currentProgram.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -359,9 +359,9 @@ const SessionsPage = (() => {
         </div>
         <div class="section-title" style="font-size:15px">Exercices</div>
         <div id="exercise-builder"></div>
-        <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">➕ Ajouter un exercice</button>
+        <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">${agogeIcon('plus')} Ajouter un exercice</button>
         <div style="height:12px"></div>
-        <button class="btn btn-primary btn-block" onclick="SessionsPage.saveEdit(${id})">💾 Enregistrer</button>
+        <button class="btn btn-primary btn-block" onclick="SessionsPage.saveEdit(${id})">${agogeIcon('save')} Enregistrer</button>
       `);
 
       const box = document.getElementById('exercise-builder');
@@ -380,7 +380,7 @@ const SessionsPage = (() => {
         });
       }
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -388,13 +388,13 @@ const SessionsPage = (() => {
     if (!confirm('Supprimer ce programme d\'entraînement ?')) return;
     try {
       await API.sessions.remove(id);
-      showToast('🗑️ Programme supprimé');
+      showToast(`${agogeIcon('trash')} Programme supprimé`);
       if (currentProgram && currentProgram.id === id) {
         currentProgram = null;
       }
       await renderList();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -403,20 +403,20 @@ const SessionsPage = (() => {
     if (!confirm('Réinitialiser la progression de ce programme ?')) return;
     try {
       await API.sessions.reset(currentProgram.id);
-      showToast('↺ Progression réinitialisée');
+      showToast(`${agogeIcon('arrowsRotate')} Progression réinitialisée`);
       await open(currentProgram.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
   async function completeProgramFromList(id) {
     try {
       const done = await API.sessions.complete(id, todayStr());
-      showToast('✅ Séance enregistrée dans l\'historique !');
+      showToast(`${agogeIcon('check')} Séance enregistrée dans l'historique !`);
       await openHistory(done.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -428,10 +428,10 @@ const SessionsPage = (() => {
     }
     try {
       const done = await API.sessions.complete(currentProgram.id, todayStr());
-      showToast('✅ Séance enregistrée dans l\'historique !');
+      showToast(`${agogeIcon('check')} Séance enregistrée dans l'historique !`);
       await openHistory(done.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -444,12 +444,12 @@ const SessionsPage = (() => {
     overlay.id = 'rest-timer';
     overlay.className = 'rest-timer';
     overlay.innerHTML = `
-      <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">⏱️ Repos — ${escapeHtml(exerciseName)}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">${agogeIcon('stopwatch')} Repos — ${escapeHtml(exerciseName)}</div>
       <div class="timer-display">${formatTime(restRemaining)}</div>
       <div class="timer-controls">
         <button class="btn btn-sm btn-outline" onclick="SessionsPage.addRest(15)">+15s</button>
-        <button class="btn btn-sm btn-outline" onclick="SessionsPage.stopRest()">✕ Arrêter</button>
-        <button class="btn btn-sm btn-primary" onclick="SessionsPage.restComplete()">✓ Terminé</button>
+        <button class="btn btn-sm btn-outline" onclick="SessionsPage.stopRest()">${agogeIcon('close')} Arrêter</button>
+        <button class="btn btn-sm btn-primary" onclick="SessionsPage.restComplete()">${agogeIcon('check')} Terminé</button>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -480,7 +480,7 @@ const SessionsPage = (() => {
   function restComplete() {
     stopRest();
     vibrate();
-    showToast('🔔 Repos terminé !');
+    showToast(`${agogeIcon('stopwatch')} Repos terminé !`);
   }
 
   function renderTimer() {
@@ -512,9 +512,9 @@ const SessionsPage = (() => {
       </div>
       <div class="section-title" style="font-size:15px">Exercices</div>
       <div id="exercise-builder"></div>
-      <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">➕ Ajouter un exercice</button>
+      <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">${agogeIcon('plus')} Ajouter un exercice</button>
       <div style="height:12px"></div>
-      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveCreate()">✅ Créer le programme</button>
+      <button class="btn btn-primary btn-block" onclick="SessionsPage.saveCreate()">${agogeIcon('check')} Créer le programme</button>
     `);
     addExerciseBuilder();
   }
@@ -529,7 +529,7 @@ const SessionsPage = (() => {
     div.innerHTML = `
       <div class="eb-header">
         <input type="text" placeholder="Nom de l'exercice" class="eb-name" value="${escapeHtml(data.name || '')}">
-        <button class="eb-remove" onclick="this.parentElement.parentElement.remove()">✕</button>
+        <button class="eb-remove" onclick="this.parentElement.parentElement.remove()">${agogeIcon('close')}</button>
       </div>
       <div class="eb-group">
         <select class="eb-muscle">
@@ -614,10 +614,10 @@ const SessionsPage = (() => {
     try {
       const session = await API.sessions.create({ name, exercises });
       closeModal();
-      showToast('✅ Programme créé !');
+      showToast(`${agogeIcon('check')} Programme créé !`);
       await open(session.id);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -635,14 +635,14 @@ const SessionsPage = (() => {
     try {
       const session = await API.sessions.update(id, { name, exercises });
       closeModal();
-      showToast('✅ Programme mis à jour');
+      showToast(`${agogeIcon('check')} Programme mis à jour`);
       if (currentProgram && currentProgram.id === id) {
         await open(session.id);
       } else {
         await renderList();
       }
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -660,7 +660,7 @@ const SessionsPage = (() => {
 
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = window.agogeToastMarkup(msg);
     t.classList.remove('hidden');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);

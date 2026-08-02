@@ -203,7 +203,7 @@ const App = (() => {
     try {
       const result = await API.syncNow();
       if (result.synced > 0) {
-        showToast(`🔄 ${result.synced} action(s) synchronisée(s)`);
+        showToast(`${agogeIcon('arrowsRotate')} ${result.synced} action(s) synchronisée(s)`);
         // Re-render current page to refresh data
         navigate(currentRoute, currentParams);
       }
@@ -214,7 +214,7 @@ const App = (() => {
 
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = window.agogeToastMarkup(msg);
     t.classList.remove('hidden');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);

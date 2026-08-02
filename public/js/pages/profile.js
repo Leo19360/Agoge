@@ -13,6 +13,26 @@ const ProfilePage = (() => {
       .replace(/'/g, '&#39;');
   }
 
+  function formatCreatedAt(value) {
+    if (!value) return '—';
+
+    const raw = String(value).trim();
+    const candidates = [
+      raw,
+      raw.includes('T') ? raw : raw.replace(' ', 'T'),
+      /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw
+    ];
+
+    for (const candidate of candidates) {
+      const date = new Date(candidate);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toLocaleDateString('fr-FR');
+      }
+    }
+
+    return '—';
+  }
+
   async function render() {
     const container = document.getElementById('view-container');
     container.innerHTML = '<div class="loading">Chargement...</div>';
@@ -25,7 +45,7 @@ const ProfilePage = (() => {
       const initial = (displayName || 'U')[0].toUpperCase();
 
       container.innerHTML = `
-        <div class="page-title">👤 Profil</div>
+        <div class="page-title">${agogeIcon('user')} Profil</div>
         <div class="page-subtitle">Tes informations personnelles</div>
 
         <div class="card" style="text-align:center;padding:24px">
@@ -50,7 +70,7 @@ const ProfilePage = (() => {
         </div>
 
         <div class="card">
-          <div class="card-title">📝 Modifier mon profil</div>
+          <div class="card-title">${agogeIcon('edit')} Modifier mon profil</div>
           <div class="profile-form">
             <label>Nom / Pseudo
               <input type="text" id="p-name" value="${escapeHtml(profile.name || '')}" required>
@@ -72,12 +92,12 @@ const ProfilePage = (() => {
                 <option value="force" ${profile.goal === 'force' ? 'selected' : ''}>Force</option>
               </select>
             </label>
-            <button class="btn btn-primary btn-block" onclick="ProfilePage.saveProfile()">💾 Enregistrer</button>
+            <button class="btn btn-primary btn-block" onclick="ProfilePage.saveProfile()">${agogeIcon('save')} Enregistrer</button>
           </div>
         </div>
 
         <div class="card">
-          <div class="card-title">🎨 Apparence</div>
+          <div class="card-title">${agogeIcon('palette')} Apparence</div>
           <p class="card-subtitle">Choisis le style qui te convient</p>
           <div class="theme-grid">
             ${ThemeManager.THEMES.map(t => `
@@ -91,8 +111,8 @@ const ProfilePage = (() => {
 
         <div class="card">
           <div class="card-title">Données</div>
-          <p class="card-subtitle">Compte créé le ${profile.created_at ? new Date(profile.created_at + 'T00:00:00').toLocaleDateString('fr-FR') : '—'}</p>
-          <button class="btn btn-danger btn-block" style="margin-top:12px" onclick="ProfilePage.logout()">🚪 Déconnexion</button>
+          <p class="card-subtitle">Compte créé le ${formatCreatedAt(profile.created_at)}</p>
+          <button class="btn btn-danger btn-block" style="margin-top:12px" onclick="ProfilePage.logout()">${agogeIcon('logout')} Déconnexion</button>
         </div>
 
         <div style="height:24px"></div>
@@ -100,7 +120,7 @@ const ProfilePage = (() => {
     } catch (e) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="color:var(--danger)">⚠️ Erreur</div>
+          <div class="card-title" style="color:var(--danger)">${agogeIcon('warning')} Erreur</div>
           <p class="card-subtitle">${e.message}</p>
         </div>
       `;
@@ -109,10 +129,10 @@ const ProfilePage = (() => {
 
   function goalLabel(goal) {
     const labels = {
-      'prise_masse': '💪 Prise de masse',
-      'seche': '🔥 Sèche',
-      'maintien': '⚖️ Maintien',
-      'force': '🏋️ Force'
+      'prise_masse': `${agogeIcon('dumbbell')} Prise de masse`,
+      'seche': `${agogeIcon('fire')} Sèche`,
+      'maintien': `${agogeIcon('weightScale')} Maintien`,
+      'force': `${agogeIcon('dumbbell')} Force`
     };
     return labels[goal] || goal || '—';
   }
@@ -121,9 +141,9 @@ const ProfilePage = (() => {
     try {
       await ThemeManager.setTheme(theme);
       updateThemeUI();
-      showToast('🎨 Style appliqué');
+      showToast(`${agogeIcon('palette')} Style appliqué`);
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -147,10 +167,10 @@ const ProfilePage = (() => {
     }
     try {
       await API.updateProfile(data);
-      showToast('✅ Profil mis à jour');
+      showToast(`${agogeIcon('check')} Profil mis à jour`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -162,7 +182,7 @@ const ProfilePage = (() => {
 
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = window.agogeToastMarkup(msg);
     t.classList.remove('hidden');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);

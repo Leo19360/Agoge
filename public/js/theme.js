@@ -43,7 +43,7 @@ const ThemeManager = (() => {
     try {
       await API.setTheme(id);
     } catch (e) {
-      console.log('⚠️ Thème non sauvegardé côté serveur :', e.message);
+      console.log('Theme non sauvegarde cote serveur :', e.message);
     }
     return id;
   }

@@ -18,7 +18,7 @@ const NutritionPage = (() => {
     if (!goal || goal <= 0) return { cls: '', label: '' };
     const ratio = value / goal;
     if (ratio < 0.9) return { cls: 'goal-under', label: "Sous l'objectif" };
-    if (ratio <= 1.0) return { cls: 'goal-ok', label: 'Objectif atteint ✓' };
+    if (ratio <= 1.0) return { cls: 'goal-ok', label: `${agogeIcon('check')} Objectif atteint` };
     if (ratio <= 1.15) return { cls: 'goal-warning', label: 'Légèrement dépassé' };
     return { cls: 'goal-over', label: 'Très dépassé' };
   }
@@ -49,34 +49,34 @@ const NutritionPage = (() => {
           </div>
           <button class="fe-del" onclick="NutritionPage.removeEntry(${e.id})">✕</button>
         </div>
-      `).join('') : '<div class="empty-state">Rien pour l\'instant. Recherche un aliment ci-dessus pour commencer ton journal alimentaire 🍎</div>';
+      `).join('') : `<div class="empty-state">Rien pour l'instant. Recherche un aliment ci-dessus pour commencer ton journal alimentaire ${agogeIcon('apple')}</div>`;
 
       container.innerHTML = `
-        <div class="page-title">🥗 Alimentation</div>
+        <div class="page-title">${agogeIcon('bowlFood')} Alimentation</div>
         <div class="page-subtitle">Suis tes calories et tes macros chaque jour</div>
 
         <div class="hero-card">
           <div class="hero-title">Journal du jour</div>
           <div class="hero-subtitle">Ajoute rapidement tes aliments et garde un œil sur tes objectifs.</div>
           <div class="summary-pills">
-            <span class="summary-pill">🔥 ${Math.round(totals.calories)} kcal</span>
-            <span class="summary-pill">💪 ${Math.round(totals.proteins)}g prot</span>
-            <span class="summary-pill">🍞 ${Math.round(totals.carbs)}g glucides</span>
+            <span class="summary-pill">${agogeIcon('fire')} ${Math.round(totals.calories)} kcal</span>
+            <span class="summary-pill">${agogeIcon('dumbbell')} ${Math.round(totals.proteins)}g prot</span>
+            <span class="summary-pill">${agogeIcon('bread')} ${Math.round(totals.carbs)}g glucides</span>
           </div>
         </div>
 
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">📅 Jour</div>
+              <div class="card-title">${agogeIcon('calendar')} Jour</div>
               <div class="card-subtitle">Choisis la date</div>
             </div>
             <input type="date" value="${selectedDate}" onchange="NutritionPage.setDate(this.value)" style="padding:8px;background:var(--bg-input);border:1px solid #333;border-radius:8px;color:var(--text);font-size:13px">
           </div>
           <div class="search-bar">
             <input type="text" id="food-search" placeholder="Rechercher un aliment (ex: poulet, riz...)" onkeydown="if(event.key==='Enter')NutritionPage.search()">
-            <button class="btn btn-outline" title="Scanner un code-barres" onclick="NutritionPage.scanBarcode()">📷</button>
-            <button class="btn btn-primary" onclick="NutritionPage.search()">🔍</button>
+            <button class="btn btn-outline" title="Scanner un code-barres" onclick="NutritionPage.scanBarcode()">${agogeIcon('camera')}</button>
+            <button class="btn btn-primary" onclick="NutritionPage.search()">${agogeIcon('magnify')}</button>
           </div>
           <div id="food-results"></div>
         </div>
@@ -109,18 +109,18 @@ const NutritionPage = (() => {
           <div class="card">
             <div class="card-title" style="font-size:14px">Statut objectifs</div>
             <div style="margin-top:8px;font-size:13px">
-              <div class="macro-row"><span style="font-size:12px">🔥 Calories : <b class="${calStatus.cls}">${calStatus.label}</b></span></div>
-              <div class="macro-row"><span style="font-size:12px">💪 Protéines : <b class="${protStatus.cls}">${protStatus.label}</b></span></div>
-              <div class="macro-row"><span style="font-size:12px">🍞 Glucides : <b class="${carbStatus.cls}">${carbStatus.label}</b></span></div>
-              <div class="macro-row"><span style="font-size:12px">🥑 Lipides : <b class="${fatStatus.cls}">${fatStatus.label}</b></span></div>
+              <div class="macro-row"><span style="font-size:12px">${agogeIcon('fire')} Calories : <b class="${calStatus.cls}">${calStatus.label}</b></span></div>
+              <div class="macro-row"><span style="font-size:12px">${agogeIcon('dumbbell')} Protéines : <b class="${protStatus.cls}">${protStatus.label}</b></span></div>
+              <div class="macro-row"><span style="font-size:12px">${agogeIcon('bread')} Glucides : <b class="${carbStatus.cls}">${carbStatus.label}</b></span></div>
+              <div class="macro-row"><span style="font-size:12px">${agogeIcon('seedling')} Lipides : <b class="${fatStatus.cls}">${fatStatus.label}</b></span></div>
             </div>
           </div>
         ` : ''}
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📋 Aliments du jour</div>
-            <button class="btn btn-sm btn-outline" onclick="NutritionPage.goalModal()">🎯 Objectifs</button>
+            <div class="card-title">${agogeIcon('clipboard')} Aliments du jour</div>
+            <button class="btn btn-sm btn-outline" onclick="NutritionPage.goalModal()">${agogeIcon('sliders')} Objectifs</button>
           </div>
           ${entriesHtml}
         </div>
@@ -132,7 +132,7 @@ const NutritionPage = (() => {
     } catch (e) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="color:var(--danger)">⚠️ Erreur</div>
+          <div class="card-title" style="color:var(--danger)">${agogeIcon('warning')} Erreur</div>
           <p class="card-subtitle">${e.message}</p>
         </div>
       `;
@@ -143,7 +143,7 @@ const NutritionPage = (() => {
     try {
       const stats = await API.nutrition.stats();
       return `
-        <div class="section-title">📊 Moyenne sur 7 jours</div>
+        <div class="section-title">${agogeIcon('chart')} Moyenne sur 7 jours</div>
         <div class="card">
           <div class="week-avg">
             <div class="avg-box">
@@ -169,7 +169,7 @@ const NutritionPage = (() => {
         </div>
       `;
     } catch (e) {
-      return '<div class="section-title">📊 Moyenne sur 7 jours</div><div class="card"><p class="card-subtitle">Disponible hors-ligne après chargement.</p></div>';
+      return `<div class="section-title">${agogeIcon('chart')} Moyenne sur 7 jours</div><div class="card"><p class="card-subtitle">Disponible hors-ligne après chargement.</p></div>`;
     }
   }
 
@@ -195,7 +195,7 @@ const NutritionPage = (() => {
   function foodResultHtml(r, i) {
     const img = r.image
       ? `<img src="${r.image}" alt="" loading="lazy" onerror="this.style.display='none'">`
-      : `<div class="f-thumb f-thumb-placeholder">🍽️</div>`;
+      : `<div class="f-thumb f-thumb-placeholder">${agogeIcon('bowlFood')}</div>`;
     return `
       <div class="food-result" onclick="NutritionPage.showFoodDetail(${i})">
         <div class="f-thumb">${img}</div>
@@ -215,7 +215,7 @@ const NutritionPage = (() => {
     if (!query) return;
     const resultsDiv = document.getElementById('food-results');
     const requestId = ++searchRequestId;
-    resultsDiv.innerHTML = '<div class="empty-state">🔎 Recherche en cours…</div>';
+    resultsDiv.innerHTML = `<div class="empty-state">${agogeIcon('magnify')} Recherche en cours…</div>`;
     try {
       searchResults = await API.searchFood(query);
       if (requestId !== searchRequestId) return;
@@ -224,7 +224,7 @@ const NutritionPage = (() => {
         : '<div class="empty-state">Aucun résultat pour cette recherche.</div>';
     } catch (e) {
       if (requestId !== searchRequestId) return;
-      resultsDiv.innerHTML = '<div class="empty-state">⚠️ Recherche impossible pour l’instant. Réessaie dans quelques secondes.</div>';
+      resultsDiv.innerHTML = `<div class="empty-state">${agogeIcon('warning')} Recherche impossible pour l’instant. Réessaie dans quelques secondes.</div>`;
     }
   }
 
@@ -250,7 +250,7 @@ const NutritionPage = (() => {
   function renderFoodModal(food) {
     const img = food.image
       ? `<img src="${food.image}" alt="${food.name}" class="f-detail-img" onerror="this.style.display='none'">`
-      : `<div class="f-detail-img f-detail-img-placeholder">🍽️</div>`;
+      : `<div class="f-detail-img f-detail-img-placeholder">${agogeIcon('bowlFood')}</div>`;
     const per = food.liquid ? '100 ml' : '100 g';
     const novaLabel = food.nova ? `• NOVA ${food.nova}` : '';
 
@@ -273,13 +273,13 @@ const NutritionPage = (() => {
 
       <div class="section-title" style="font-size:14px;margin:14px 0 8px">Valeurs nutritionnelles (${per})</div>
       <div class="f-macro-grid">
-        ${macroCell('🔥', 'Calories', Math.round(food.calories), ' kcal')}
-        ${macroCell('💪', 'Protéines', food.proteins, 'g')}
-        ${macroCell('🍞', 'Glucides', food.carbs, 'g')}
-        ${macroCell('🥑', 'Lipides', food.fats, 'g')}
-        ${macroCell('🌾', 'Fibres', food.fibers || 0, 'g')}
-        ${macroCell('🍬', 'Sucres', food.sugars || 0, 'g')}
-        ${macroCell('🧂', 'Sel', food.salt || 0, 'g')}
+        ${macroCell(agogeIcon('fire'), 'Calories', Math.round(food.calories), ' kcal')}
+        ${macroCell(agogeIcon('dumbbell'), 'Protéines', food.proteins, 'g')}
+        ${macroCell(agogeIcon('bread'), 'Glucides', food.carbs, 'g')}
+        ${macroCell(agogeIcon('seedling'), 'Lipides', food.fats, 'g')}
+        ${macroCell(agogeIcon('wheat'), 'Fibres', food.fibers || 0, 'g')}
+        ${macroCell(agogeIcon('apple'), 'Sucres', food.sugars || 0, 'g')}
+        ${macroCell(agogeIcon('bottleWater'), 'Sel', food.salt || 0, 'g')}
       </div>
 
       ${food.ingredients ? `
@@ -288,7 +288,7 @@ const NutritionPage = (() => {
       ` : ''}
 
       ${food.allergens ? `
-        <div class="f-allergens">⚠️ Allergènes : ${food.allergens.replace(/\s*en:/g, '').replace(/,/g, ', ')}</div>
+        <div class="f-allergens">${agogeIcon('warning')} Allergènes : ${food.allergens.replace(/\s*en:/g, '').replace(/,/g, ', ')}</div>
       ` : ''}
 
       <div class="section-title" style="font-size:14px;margin:16px 0 8px">Ajouter au repas</div>
@@ -305,7 +305,7 @@ const NutritionPage = (() => {
           </select>
         </div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="NutritionPage.confirmAddFood()">✅ Ajouter</button>
+      <button class="btn btn-primary btn-block" onclick="NutritionPage.confirmAddFood()">${agogeIcon('check')} Ajouter</button>
     `);
   }
 
@@ -327,10 +327,10 @@ const NutritionPage = (() => {
         carbs: food.carbs * ratio,
         fats: food.fats * ratio
       });
-      showToast('✅ Aliment ajouté');
+      showToast(`${agogeIcon('check')} Aliment ajouté`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -345,7 +345,7 @@ const NutritionPage = (() => {
     scannerStream = null;
 
     showModal(`
-      <h3>📷 Scanner un code-barres <button class="modal-close" onclick="NutritionPage.stopScanner()">✕</button></h3>
+    <h3>${agogeIcon('camera')} Scanner un code-barres <button class="modal-close" onclick="NutritionPage.stopScanner()">✕</button></h3>
       <div class="scanner-wrap">
         <video id="scanner-video" class="scanner-video" playsinline muted></video>
         <div class="scanner-overlay">
@@ -353,7 +353,7 @@ const NutritionPage = (() => {
           <p class="scanner-hint">Place le code-barres dans le cadre</p>
         </div>
       </div>
-      <button class="btn btn-outline btn-block" onclick="NutritionPage.manualBarcodeModal()">⌨️ Saisir le code manuellement</button>
+      <button class="btn btn-outline btn-block" onclick="NutritionPage.manualBarcodeModal()">${agogeIcon('filePen')} Saisir le code manuellement</button>
     `);
 
     try {
@@ -381,7 +381,7 @@ const NutritionPage = (() => {
     } catch (e) {
       if (!scannerStopped) {
         stopScanner();
-        manualBarcodeModal('📷 Caméra indisponible — saisis le code manuellement.');
+        manualBarcodeModal(`${agogeIcon('camera')} Caméra indisponible — saisis le code manuellement.`);
       }
     }
   }
@@ -415,23 +415,23 @@ const NutritionPage = (() => {
 
   function manualBarcodeModal(msg) {
     showModal(`
-      <h3>⌨️ Saisie du code-barres <button class="modal-close" onclick="closeModal()">✕</button></h3>
+      <h3>${agogeIcon('filePen')} Saisie du code-barres <button class="modal-close" onclick="closeModal()">✕</button></h3>
       ${msg ? `<p class="card-subtitle" style="margin-bottom:10px">${msg}</p>` : ''}
       <div class="modal-field">
         <label>Code-barres du produit</label>
         <input type="text" id="manual-barcode" inputmode="numeric" placeholder="Ex : 3017620422003" onkeydown="if(event.key==='Enter')NutritionPage.loadScannedProduct(document.getElementById('manual-barcode').value)">
       </div>
-      <button class="btn btn-primary btn-block" onclick="NutritionPage.loadScannedProduct(document.getElementById('manual-barcode').value)">🔍 Rechercher</button>
+      <button class="btn btn-primary btn-block" onclick="NutritionPage.loadScannedProduct(document.getElementById('manual-barcode').value)">${agogeIcon('magnify')} Rechercher</button>
     `);
   }
 
   async function removeEntry(id) {
     try {
       await API.nutrition.removeEntry(id);
-      showToast('🗑️ Aliment retiré');
+      showToast(`${agogeIcon('trash')} Aliment retiré`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -441,22 +441,22 @@ const NutritionPage = (() => {
     showModal(`
       <h3>Objectifs nutritionnels <button class="modal-close" onclick="closeModal()">✕</button></h3>
       <div class="modal-field">
-        <label>🔥 Calories (kcal)</label>
+        <label>${agogeIcon('fire')} Calories (kcal)</label>
         <input type="number" id="goal-calories" value="${goal.calories || 2000}" min="0">
       </div>
       <div class="modal-field">
-        <label>💪 Protéines (g)</label>
+        <label>${agogeIcon('dumbbell')} Protéines (g)</label>
         <input type="number" id="goal-proteins" value="${goal.proteins || 150}" min="0">
       </div>
       <div class="modal-field">
-        <label>🍞 Glucides (g)</label>
+        <label>${agogeIcon('bread')} Glucides (g)</label>
         <input type="number" id="goal-carbs" value="${goal.carbs || 250}" min="0">
       </div>
       <div class="modal-field">
-        <label>🥑 Lipides (g)</label>
+        <label>${agogeIcon('seedling')} Lipides (g)</label>
         <input type="number" id="goal-fats" value="${goal.fats || 70}" min="0">
       </div>
-      <button class="btn btn-primary btn-block" onclick="NutritionPage.saveGoals()">💾 Enregistrer</button>
+      <button class="btn btn-primary btn-block" onclick="NutritionPage.saveGoals()">${agogeIcon('save')} Enregistrer</button>
     `);
   }
 
@@ -470,10 +470,10 @@ const NutritionPage = (() => {
     try {
       await API.nutrition.setGoals(data);
       closeModal();
-      showToast('🎯 Objectifs enregistrés');
+      showToast(`${agogeIcon('sliders')} Objectifs enregistrés`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -493,7 +493,7 @@ const NutritionPage = (() => {
 
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = window.agogeToastMarkup(msg);
     t.classList.remove('hidden');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);

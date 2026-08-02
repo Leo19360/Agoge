@@ -325,6 +325,14 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   min-height: 44px;
 }
 
+.agoge-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  flex: 0 0 auto;
+}
+
 /* ============================================
    APP LAYOUT
    ============================================ */
@@ -450,7 +458,18 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   position: relative;
 }
 
-.nav-item .nav-icon { font-size: 21px; }
+.nav-item .nav-icon {
+  font-size: 21px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-item .nav-icon .agoge-icon {
+  width: 1.05em;
+  height: 1.05em;
+}
 
 /* Indicateur doré au-dessus de l'onglet actif */
 .nav-item.active::before {
@@ -2139,6 +2158,18 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   animation: fadeIn 0.2s;
   max-width: 90%;
   text-align: center;
+}
+
+.toast-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast-inline .agoge-icon {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
 }
 
 /* ============================================

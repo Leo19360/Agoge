@@ -25,16 +25,16 @@ const BodyPage = (() => {
         <div class="photo-item">
           <img src="${p.url}" alt="Photo ${p.date}" loading="lazy">
           <div class="photo-date">${fmtDate(p.date)}</div>
-          <button class="photo-delete" onclick="BodyPage.removePhoto(${p.id})">✕</button>
+          <button class="photo-delete" onclick="BodyPage.removePhoto(${p.id})">${agogeIcon('close')}</button>
         </div>
       `).join('') : '';
 
       container.innerHTML = `
-        <div class="page-title">📊 Suivi Physique</div>
+        <div class="page-title">${agogeIcon('chart')} Suivi Physique</div>
         <div class="page-subtitle">Poids, mesures et photos de progression</div>
 
         <div class="card">
-          <div class="card-title">⚖️ Poids</div>
+          <div class="card-title">${agogeIcon('weightScale')} Poids</div>
           <div class="weight-form">
             <input type="number" id="weight-input" step="0.1" min="20" max="300" placeholder="${latestWeight ? latestWeight.toFixed(1) : '75.0'} kg" value="${latestWeight || ''}">
             <button class="btn btn-primary" onclick="BodyPage.addWeight()">+</button>
@@ -46,14 +46,14 @@ const BodyPage = (() => {
         </div>
 
         <div class="card">
-          <div class="card-title">📈 Derniers relevés</div>
+          <div class="card-title">${agogeIcon('chart')} Derniers relevés</div>
           ${weightEntries.length > 0 ? `
             <div style="font-size:13px">
               ${weightEntries.slice(-7).reverse().map((w) => `
                 <div class="progress-list-item">
                   <span>${fmtDateTime(w.created_at)}</span>
                   <span>${Number(w.weight).toFixed(1)} kg</span>
-                  <button class="icon-btn" style="width:28px;height:28px;font-size:14px" onclick="BodyPage.removeWeight(${w.id})">✕</button>
+                  <button class="icon-btn" style="width:28px;height:28px;font-size:14px" onclick="BodyPage.removeWeight(${w.id})">${agogeIcon('close')}</button>
                 </div>
               `).join('')}
             </div>
@@ -62,11 +62,11 @@ const BodyPage = (() => {
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📸 Photos de progression</div>
-            <button class="btn btn-sm btn-outline" onclick="BodyPage.uploadPhoto()">➕ Ajouter</button>
+            <div class="card-title">${agogeIcon('image')} Photos de progression</div>
+            <button class="btn btn-sm btn-outline" onclick="BodyPage.uploadPhoto()">${agogeIcon('plus')} Ajouter</button>
           </div>
           <div class="photo-upload" onclick="document.getElementById('photo-input').click()">
-            <span>📷 Ajoute une photo pour suivre ton évolution chaque semaine ou mois</span>
+            <span>${agogeIcon('camera')} Ajoute une photo pour suivre ton évolution chaque semaine ou mois</span>
             <input type="file" id="photo-input" accept="image/*" onchange="BodyPage.handlePhotoUpload(event)" style="display:none">
           </div>
           ${sortedPhotos.length > 0 ? `
@@ -74,7 +74,7 @@ const BodyPage = (() => {
               ${photosHtml}
             </div>
             ${sortedPhotos.length >= 2 ? `
-              <button class="btn btn-outline btn-block" onclick="BodyPage.comparePhotos()">🔄 Comparer deux photos</button>
+              <button class="btn btn-outline btn-block" onclick="BodyPage.comparePhotos()">${agogeIcon('arrowsRotate')} Comparer deux photos</button>
             ` : ''}
             <div class="card-subtitle" style="margin-top:8px">Tu peux enregistrer des photos à intervalles réguliers pour voir ton évolution sur les jours, semaines et mois.</div>
           ` : '<p class="card-subtitle">Aucune photo pour le moment. Ajoute la première photo de référence.</p>'}
@@ -83,7 +83,7 @@ const BodyPage = (() => {
         <div class="card">
           <div class="card-header">
             <div class="card-title">📏 Mesures corporelles</div>
-            <button class="btn btn-sm btn-outline" onclick="BodyPage.measurementModal()">➕ Ajouter</button>
+            <button class="btn btn-sm btn-outline" onclick="BodyPage.measurementModal()">${agogeIcon('plus')} Ajouter</button>
           </div>
           ${measurements.length > 0 ? `
             <div style="font-size:13px">
@@ -106,7 +106,7 @@ const BodyPage = (() => {
     } catch (e) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="color:var(--danger)">⚠️ Erreur</div>
+          <div class="card-title" style="color:var(--danger)">${agogeIcon('warning')} Erreur</div>
           <p class="card-subtitle">${e.message}</p>
         </div>
       `;
@@ -137,10 +137,10 @@ const BodyPage = (() => {
     }
     try {
       await API.body.addWeight({ weight, date: new Date().toISOString().slice(0, 10) });
-      showToast('✅ Poids enregistré');
+      showToast(`${agogeIcon('check')} Poids enregistré`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -148,10 +148,10 @@ const BodyPage = (() => {
     if (!confirm('Supprimer ce relevé de poids ?')) return;
     try {
       await API.body.removeWeight(id);
-      showToast('🗑️ Relevé supprimé');
+      showToast(`${agogeIcon('trash')} Relevé supprimé`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -165,13 +165,13 @@ const BodyPage = (() => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('⚠️ Sélectionne une image valide');
+      showToast(`${agogeIcon('warning')} Sélectionne une image valide`);
       event.target.value = '';
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      showToast('⚠️ La photo doit faire moins de 10 Mo');
+      showToast(`${agogeIcon('warning')} La photo doit faire moins de 10 Mo`);
       event.target.value = '';
       return;
     }
@@ -186,10 +186,10 @@ const BodyPage = (() => {
     formData.append('date', date);
     try {
       await API.body.uploadPhoto(formData);
-      showToast('📸 Photo ajoutée');
+      showToast(`${agogeIcon('image')} Photo ajoutée`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
     event.target.value = '';
   }
@@ -198,10 +198,10 @@ const BodyPage = (() => {
     if (!confirm('Supprimer cette photo ?')) return;
     try {
       await API.body.removePhoto(id);
-      showToast('🗑️ Photo supprimée');
+      showToast(`${agogeIcon('trash')} Photo supprimée`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -214,15 +214,15 @@ const BodyPage = (() => {
     const oldest = sorted[0];
     const newest = sorted[sorted.length - 1];
     showModal(`
-      <h3 style="color:#fff">🔄 Comparaison côte à côte <button class="modal-close" onclick="closeModal()" style="color:#fff">✕</button></h3>
+      <h3 style="color:#fff">${agogeIcon('arrowsRotate')} Comparaison côte à côte <button class="modal-close" onclick="closeModal()" style="color:#fff">✕</button></h3>
       <div class="compare-photos">
         <div>
           <img src="${oldest.url}" alt="Avant" loading="lazy">
-          <div class="photo-label">📅 ${fmtDate(oldest.date)}</div>
+          <div class="photo-label">${agogeIcon('calendar')} ${fmtDate(oldest.date)}</div>
         </div>
         <div>
           <img src="${newest.url}" alt="Après" loading="lazy">
-          <div class="photo-label">📅 ${fmtDate(newest.date)}</div>
+          <div class="photo-label">${agogeIcon('calendar')} ${fmtDate(newest.date)}</div>
         </div>
       </div>
       <div style="text-align:center;margin-top:12px;color:var(--text-dim);font-size:13px">
@@ -238,7 +238,7 @@ const BodyPage = (() => {
           ${photos.map((p, i) => `<option value="${i}" ${i === photos.length - 1 ? 'selected' : ''}>${fmtDate(p.date)}</option>`).join('')}
         </select>
       </div>
-      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="BodyPage.doCompare()">🔄 Comparer</button>
+      <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="BodyPage.doCompare()">${agogeIcon('arrowsRotate')} Comparer</button>
     `);
   }
 
@@ -258,11 +258,11 @@ const BodyPage = (() => {
       <div class="compare-photos">
         <div>
           <img src="${oldPhoto.url}" alt="Avant" loading="lazy">
-          <div class="photo-label">📅 ${fmtDate(oldPhoto.date)}</div>
+          <div class="photo-label">${agogeIcon('calendar')} ${fmtDate(oldPhoto.date)}</div>
         </div>
         <div>
           <img src="${newPhoto.url}" alt="Après" loading="lazy">
-          <div class="photo-label">📅 ${fmtDate(newPhoto.date)}</div>
+          <div class="photo-label">${agogeIcon('calendar')} ${fmtDate(newPhoto.date)}</div>
         </div>
       </div>
     `;
@@ -272,7 +272,7 @@ const BodyPage = (() => {
   // ---------- MESURES ----------
   function measurementModal() {
     showModal(`
-      <h3>Nouvelles mesures <button class="modal-close" onclick="closeModal()">✕</button></h3>
+      <h3>${agogeIcon('ruler')} Nouvelles mesures <button class="modal-close" onclick="closeModal()">✕</button></h3>
       <div class="measure-form">
         <label>Tour de taille (cm)
           <input type="number" id="m-waist" step="0.5" min="0" placeholder="80">
@@ -293,7 +293,7 @@ const BodyPage = (() => {
           <input type="number" id="m-shoulders" step="0.5" min="0" placeholder="110">
         </label>
       </div>
-      <button class="btn btn-primary btn-block" onclick="BodyPage.saveMeasurement()">💾 Enregistrer</button>
+      <button class="btn btn-primary btn-block" onclick="BodyPage.saveMeasurement()">${agogeIcon('save')} Enregistrer</button>
     `);
   }
 
@@ -314,10 +314,10 @@ const BodyPage = (() => {
     try {
       await API.body.addMeasurement(data);
       closeModal();
-      showToast('📏 Mesures enregistrées');
+      showToast(`${agogeIcon('ruler')} Mesures enregistrées`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -325,10 +325,10 @@ const BodyPage = (() => {
     if (!confirm('Supprimer cette mesure ?')) return;
     try {
       await API.body.removeMeasurement(id);
-      showToast('🗑️ Mesure supprimée');
+      showToast(`${agogeIcon('trash')} Mesure supprimée`);
       render();
     } catch (e) {
-      showToast('⚠️ ' + e.message);
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -346,7 +346,7 @@ const BodyPage = (() => {
 
   function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = window.agogeToastMarkup(msg);
     t.classList.remove('hidden');
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);

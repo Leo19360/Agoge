@@ -109,10 +109,10 @@ const HomePage = (() => {
       const goal = nutrition.goal;
 
       const macroBars = goal ? `
-        ${macroBar('🔥 Calories', totals.calories, goal.calories, 'macro-cal', ' kcal')}
-        ${macroBar('💪 Protéines', totals.proteins, goal.proteins, 'macro-prot')}
-        ${macroBar('🍞 Glucides', totals.carbs, goal.carbs, 'macro-carb')}
-        ${macroBar('🥑 Lipides', totals.fats, goal.fats, 'macro-fat')}
+        ${macroBar(`${agogeIcon('fire')} Calories`, totals.calories, goal.calories, 'macro-cal', ' kcal')}
+        ${macroBar(`${agogeIcon('dumbbell')} Protéines`, totals.proteins, goal.proteins, 'macro-prot')}
+        ${macroBar(`${agogeIcon('bread')} Glucides`, totals.carbs, goal.carbs, 'macro-carb')}
+        ${macroBar(`${agogeIcon('seedling')} Lipides`, totals.fats, goal.fats, 'macro-fat')}
       ` : `
         <p class="card-subtitle">Définis tes objectifs dans la page <strong>Alimentation</strong> pour voir tes macros ici.</p>
       `;
@@ -135,17 +135,17 @@ const HomePage = (() => {
 
       const todaySessionHtml = todayProgram ? `
         <div class="hero-card">
-          <div class="hero-title">🏋️ Prochain entraînement</div>
+          <div class="hero-title">${agogeIcon('dumbbell')} Prochain entraînement</div>
           <div class="hero-subtitle">${todayProgram.name}</div>
           <div class="summary-pills">
-            <span class="summary-pill">✅ ${todayProgram.done_exercises || 0}/${todayProgram.nb_exercises || 0} exercices</span>
-            <span class="summary-pill">🔁 ${todayProgram.nb_sets || 0} séries</span>
+            <span class="summary-pill">${agogeIcon('check')} ${todayProgram.done_exercises || 0}/${todayProgram.nb_exercises || 0} exercices</span>
+            <span class="summary-pill">${agogeIcon('arrowsRotate')} ${todayProgram.nb_sets || 0} séries</span>
           </div>
           <div class="quick-actions">
             <button class="quick-action" onclick="App.navigate('sessions', {id:${todayProgram.id}})">
-              ${(todayProgram.done_exercises || 0) > 0 ? '▶️ Reprendre' : '▶️ Démarrer'}
+              ${(todayProgram.done_exercises || 0) > 0 ? `${agogeIcon('play')} Reprendre` : `${agogeIcon('play')} Démarrer`}
             </button>
-            <button class="quick-action" onclick="App.navigate('sessions')">🗂️ Mes programmes</button>
+            <button class="quick-action" onclick="App.navigate('sessions')">${agogeIcon('clipboard')} Mes programmes</button>
           </div>
           ${lastDone ? `<div class="card-subtitle" style="margin-top:10px">Dernière séance : ${lastDone.name} — ${fmtShortDate(lastDone.date)}</div>` : ''}
         </div>
@@ -154,8 +154,8 @@ const HomePage = (() => {
           <div class="hero-title">Pas encore de programme</div>
           <div class="hero-subtitle">Crée ton premier programme permanent pour démarrer une vraie routine.</div>
           <div class="quick-actions">
-            <button class="quick-action" onclick="App.navigate('sessions')">💪 Créer un programme</button>
-            <button class="quick-action" onclick="App.navigate('nutrition')">🥗 Ajouter un repas</button>
+            <button class="quick-action" onclick="App.navigate('sessions')">${agogeIcon('dumbbell')} Créer un programme</button>
+            <button class="quick-action" onclick="App.navigate('nutrition')">${agogeIcon('bowlFood')} Ajouter un repas</button>
           </div>
         </div>
       `;
@@ -172,7 +172,7 @@ const HomePage = (() => {
         : '<p class="card-subtitle">Aucun repas enregistré aujourd\'hui.</p>';
 
       container.innerHTML = `
-        <div class="greeting">Bonjour, ${String(displayName).split(' ')[0]} 👋</div>
+        <div class="greeting">${agogeIcon('clapping')} Bonjour, ${String(displayName).split(' ')[0]}</div>
         <div class="greeting-sub">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
 
         ${todaySessionHtml}
@@ -210,7 +210,7 @@ const HomePage = (() => {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">🍽️ Repas du jour</div>
+              <div class="card-title">${agogeIcon('bowlFood')} Repas du jour</div>
               <div class="card-subtitle">${Math.round(totals.calories)} kcal consommées</div>
             </div>
             <button class="btn btn-sm" onclick="App.navigate('nutrition')">+ Ajouter</button>
@@ -220,19 +220,19 @@ const HomePage = (() => {
         </div>
 
         <div class="streak">
-          <span class="fire">${streak > 0 ? '🔥' : '😴'}</span>
+          <span class="fire">${streak > 0 ? agogeIcon('fire') : agogeIcon('bed')}</span>
           <div class="streak-info">
             <div class="streak-count">${streak} jour${streak > 1 ? 's' : ''}</div>
             <div class="streak-label">de régularité (séances, repas ou poids)</div>
           </div>
         </div>
 
-        <button class="btn btn-outline btn-block" onclick="App.navigate('body')">📊 Voir mon évolution physique</button>
+        <button class="btn btn-outline btn-block" onclick="App.navigate('body')">${agogeIcon('chart')} Voir mon évolution physique</button>
       `;
     } catch (e) {
       container.innerHTML = `
         <div class="card">
-          <div class="card-title" style="color:var(--danger)">⚠️ Impossible de charger</div>
+          <div class="card-title" style="color:var(--danger)">${agogeIcon('warning')} Impossible de charger</div>
           <p class="card-subtitle" style="margin-top:8px">${e.message}</p>
           <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="App.navigate('home')">Réessayer</button>
         </div>
