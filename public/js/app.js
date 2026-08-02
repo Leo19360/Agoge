@@ -66,9 +66,6 @@ const App = (() => {
       });
     });
 
-    // Sync button
-    document.getElementById('sync-btn').addEventListener('click', syncOffline);
-
     // Check auth state
     const token = API.getToken();
     if (token) {
