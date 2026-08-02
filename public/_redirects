@@ -1,0 +1,6 @@
+# API -> Fonction Netlify (serverless)
+/api/*  /.netlify/functions/api/:splat  200
+
+# Fallback SPA (toute route inconnue -> index.html)
+/*      /index.html                     200
+

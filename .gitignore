@@ -1,0 +1,29 @@
+# Dépendances
+node_modules/
+
+# Base de données locale (SQLite) et données
+data/*.db
+data/*.db-journal
+data/*.sql
+data/*.tsv
+
+# Uploads (photos locales)
+uploads/
+
+# Logs
+*.log
+server-err.log
+server-out.log
+npm-debug.log*
+
+# Variables d'environnement
+.env
+.env.local
+
+# Système
+.DS_Store
+Thumbs.db
+
+# Netlify (fonctions et cache locaux)
+.netlify/
+

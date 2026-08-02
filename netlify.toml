@@ -1,0 +1,10 @@
+# Configuration Netlify - Agoge
+# Publish = dossier front statique, Functions = dossier des fonctions serverless
+
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
