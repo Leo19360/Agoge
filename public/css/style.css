@@ -1377,6 +1377,12 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   color: var(--text-dim);
 }
 
+.exercise-builder .eb-set-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: -2px;
+}
+
 .exercise-builder .eb-set-cell input,
 .exercise-builder .eb-sets input,
 .exercise-builder .eb-target input,
@@ -1389,6 +1395,10 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   color: var(--text);
   font-size: 14px;
   outline: none;
+}
+
+.hero-card .summary-pills {
+  flex-wrap: wrap;
 }
 
 .exercise-builder .eb-target,

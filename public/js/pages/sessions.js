@@ -42,6 +42,9 @@ const SessionsPage = (() => {
       const all = await API.sessions.list();
       const programs = all.filter((s) => Number(s.is_template) === 1);
       const history = all.filter((s) => Number(s.is_template) === 0);
+      const totalPrograms = programs.length;
+      const totalHistory = history.length;
+      const totalSets = programs.reduce((sum, s) => sum + (Number(s.nb_sets) || 0), 0);
 
       const programItems = programs.length ? programs.map((s) => `
         <div class="program-card" onclick="SessionsPage.open(${s.id})">
@@ -77,6 +80,11 @@ const SessionsPage = (() => {
         <div class="hero-card">
           <div class="hero-title">Routine simple</div>
           <div class="hero-subtitle">Crée un programme, coche tes exercices au fil de la séance et termine proprement quand tu as fini.</div>
+          <div class="summary-pills" style="margin-top:12px">
+            <span class="summary-pill">${agogeIcon('clipboard')} ${totalPrograms} programmes</span>
+            <span class="summary-pill">${agogeIcon('list')} ${totalHistory} séances</span>
+            <span class="summary-pill">${agogeIcon('weightScale')} ${totalSets} séries</span>
+          </div>
           <div class="quick-actions">
             <button class="quick-action" onclick="SessionsPage.createModal()">${agogeIcon('gym')} Nouveau programme</button>
             <button class="quick-action" onclick="SessionsPage.renderList()">${agogeIcon('arrowsRotate')} Actualiser</button>
@@ -522,6 +530,9 @@ const SessionsPage = (() => {
         <label>Nom du programme</label>
         <input type="text" id="new-program-name" placeholder="Jambes, Push day..." value="">
       </div>
+      <div class="card-subtitle" style="margin-bottom:12px;font-size:12px">
+        Le <strong>PR 1 répétition</strong> sert de repère principal. Chaque série peut ensuite avoir sa propre charge.
+      </div>
       <div class="section-title" style="font-size:15px">Exercices</div>
       <div id="exercise-builder"></div>
       <button class="btn btn-outline btn-block" onclick="SessionsPage.addExerciseBuilder()">${agogeIcon('plus')} Ajouter un exercice</button>
@@ -561,25 +572,29 @@ const SessionsPage = (() => {
           <input type="number" min="0" value="${data.rest_seconds || 90}" class="eb-rest">
         </div>
         <div>
-          <label>Poids maximal</label>
+          <label>PR 1 répétition</label>
           <input type="number" step="0.5" min="0" value="${data.weight || 20}" class="eb-weight-input" placeholder="20">
+          <div class="card-subtitle" style="margin-top:6px;font-size:12px">Ton meilleur poids sur 1 rep</div>
         </div>
       </div>
       <div class="eb-set-grid">
         <div class="eb-set-cell">
           <label>1re série</label>
+          <div class="eb-set-hint">Réps</div>
           <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[0] && setTargets[0].target_reps !== undefined ? setTargets[0].target_reps : '')}">
           <label>Poids de la série</label>
           <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="30" value="${escapeHtml(setTargets[0] && setTargets[0].target_weight !== undefined ? setTargets[0].target_weight : (data.weight || ''))}">
         </div>
         <div class="eb-set-cell">
           <label>2e série</label>
+          <div class="eb-set-hint">Réps</div>
           <input type="text" class="eb-set-reps" placeholder="9" value="${escapeHtml(setTargets[1] && setTargets[1].target_reps !== undefined ? setTargets[1].target_reps : '')}">
           <label>Poids de la série</label>
           <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="20" value="${escapeHtml(setTargets[1] && setTargets[1].target_weight !== undefined ? setTargets[1].target_weight : (data.weight || ''))}">
         </div>
         <div class="eb-set-cell">
           <label>3e série</label>
+          <div class="eb-set-hint">Réps</div>
           <input type="text" class="eb-set-reps" placeholder="12" value="${escapeHtml(setTargets[2] && setTargets[2].target_reps !== undefined ? setTargets[2].target_reps : '')}">
           <label>Poids de la série</label>
           <input type="number" step="0.5" min="0" class="eb-set-weight" placeholder="16" value="${escapeHtml(setTargets[2] && setTargets[2].target_weight !== undefined ? setTargets[2].target_weight : (data.weight || ''))}">
