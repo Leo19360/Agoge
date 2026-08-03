@@ -101,7 +101,7 @@ const API = (() => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           const message = data.error || 'Erreur serveur';
-          if ((res.status === 404 || res.status === 405) && index < origins.length - 1) {
+          if ((res.status === 404 || res.status === 405) && index < urls.length - 1) {
             lastError = new Error(message);
             continue;
           }
@@ -123,7 +123,7 @@ const API = (() => {
           await IDB.enqueue(path, { method: options.method, body: options.body ? JSON.parse(options.body) : null });
           return { queued: true };
         }
-        if (index < origins.length - 1 && (e.message === 'Failed to fetch' || e.message === 'offline' || /404|405/.test(e.message))) {
+        if (index < urls.length - 1 && (e.message === 'Failed to fetch' || e.message === 'offline' || /404|405/.test(e.message))) {
           continue;
         }
         throw e;
@@ -156,7 +156,7 @@ const API = (() => {
       } catch (e) {
         lastError = e;
         const message = e && e.message ? e.message : '';
-        if (index < origins.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
+        if (index < urls.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
           continue;
         }
         break;
@@ -187,7 +187,7 @@ const API = (() => {
       } catch (e) {
         lastError = e;
         const message = e && e.message ? e.message : '';
-        if (index < origins.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
+        if (index < urls.length - 1 && (message === 'Failed to fetch' || message === 'NetworkError when attempting to fetch' || /404|405/.test(message))) {
           continue;
         }
         break;
@@ -256,7 +256,7 @@ const API = (() => {
           return res.json();
         } catch (e) {
           lastError = e;
-          if (index < origins.length - 1 && (e.message === 'Failed to fetch' || /404|405/.test(e.message))) continue;
+          if (index < urls.length - 1 && (e.message === 'Failed to fetch' || /404|405/.test(e.message))) continue;
         }
       }
       throw lastError || new Error('Upload échoué');
