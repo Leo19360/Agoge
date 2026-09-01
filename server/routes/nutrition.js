@@ -8,6 +8,7 @@ const { calculateRecipeTotals, resolveRecipeIngredients } = require('../recipeEn
 const { body, query, param, validationResult } = require('express-validator');
 const router = express.Router();
 router.use(authMiddleware);
+const validators = require('../validators');
 
 // Total macros pour une date
 function safeNumber(value, fallback = 0) {
@@ -471,9 +472,6 @@ router.get('/recipes', async (req, res) => {
     res.status(500).json({ error: 'Impossible de charger les recettes' });
   }
 });
-
-const { validationResult } = require('express-validator');
-const validators = require('../validators');
 
 router.post('/recipes', validators.recipeCreate, async (req, res) => {
   try {

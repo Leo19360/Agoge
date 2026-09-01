@@ -65,7 +65,7 @@ router.post('/', validators.sessionCreate, async (req, res) => {
     const { name, notes, exercises } = req.body;
     const safeName = db.sanitizeText(name, { maxLength: 255 });
     if (!safeName) return res.status(400).json({ error: 'Nom du programme requis' });
-  try {
+
     const info = await db.run(
       'INSERT INTO sessions (user_id, name, date, notes, is_template) VALUES (?,?,?,?,1)',
       req.userId, safeName, new Date().toISOString().slice(0, 10), db.sanitizeText(notes, { maxLength: 2000 }) || ''
@@ -78,7 +78,7 @@ router.post('/', validators.sessionCreate, async (req, res) => {
         const nb = ex.nb_sets || (Array.isArray(ex.sets) ? ex.sets.length : 0) || 3;
         const exInfo = await db.run(
           'INSERT INTO exercises (session_id, name, muscle_group, nb_sets, rest_seconds, sort_order) VALUES (?,?,?,?,?,?)',
-          sessionId, ex.name, ex.muscle_group || null, nb, ex.rest_seconds || 90, order++
+          sessionId, db.sanitizeText(ex.name, { maxLength: 255 }) || 'Exercice', ex.muscle_group || null, nb, ex.rest_seconds || 90, order++
         );
         const exId = exInfo.lastInsertRowid;
         for (let i = 1; i <= nb; i++) {
