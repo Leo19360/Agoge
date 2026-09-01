@@ -385,7 +385,7 @@ const API = (() => {
       }
     }
 
-    const url = `${OFFS}?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&lc=fr&cc=FR&page_size=50&fields=${PRODUCT_FIELDS}`;
+    const url = `/api/proxy-offs?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&lc=fr&cc=FR&page_size=50&fields=${PRODUCT_FIELDS}`;
     const data = await fetchJsonWithRetry(url, { headers: { Accept: 'application/json' } }, { timeoutMs: 6000, retries: 2 });
 
     const terms = normQuery.split(/\s+/).filter(Boolean);
@@ -434,7 +434,7 @@ const API = (() => {
     const cacheKey = `food_${barcode}`;
     const cached = await IDB.cacheGet(cacheKey);
     if (cached && !navigator.onLine) return cached;
-    const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json`;
+    const url = `/api/proxy-offs-barcode/${encodeURIComponent(barcode)}`;
     const data = await fetchJsonWithRetry(url, { headers: { Accept: 'application/json' } }, { timeoutMs: 6000, retries: 2 });
     const p = data.product;
     if (!p || !p.code) throw new Error('Produit introuvable');

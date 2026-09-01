@@ -113,6 +113,56 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
+// OpenFoodFacts API proxy (contourne CORS)
+app.get('/api/proxy-offs', async (req, res) => {
+  try {
+    const https = require('https');
+    const queryString = new URLSearchParams(req.query).toString();
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?${queryString}`;
+    
+    https.get(url, (offsRes) => {
+      let data = '';
+      offsRes.on('data', chunk => data += chunk);
+      offsRes.on('end', () => {
+        try {
+          res.json(JSON.parse(data));
+        } catch (e) {
+          res.status(500).json({ error: 'Erreur parsing OFFS' });
+        }
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: 'Erreur requête OFFS' });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// OpenFoodFacts barcode API proxy
+app.get('/api/proxy-offs-barcode/:barcode', async (req, res) => {
+  try {
+    const https = require('https');
+    const barcode = req.params.barcode;
+    const url = `https://world.openfoodfacts.org/api/v3/product/${encodeURIComponent(barcode)}.json`;
+    
+    https.get(url, (offsRes) => {
+      let data = '';
+      offsRes.on('data', chunk => data += chunk);
+      offsRes.on('end', () => {
+        try {
+          res.json(JSON.parse(data));
+        } catch (e) {
+          res.status(500).json({ error: 'Erreur parsing OFFS' });
+        }
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: 'Erreur requête OFFS' });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // Routes API
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
