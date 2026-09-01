@@ -120,6 +120,7 @@ router.post('/register', authLimiter, [
     const user = await db.get('SELECT * FROM users WHERE id = ?', info.lastInsertRowid);
     res.status(201).json({ token: signToken(user), user: cleanUser(user) });
   } catch (e) {
+    console.error('❌ Erreur login:', e);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
