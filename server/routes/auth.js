@@ -258,4 +258,3 @@ router.put('/profile', authMiddleware, async (req, res) => {
 
 module.exports = router;
 module.exports.authMiddleware = authMiddleware;
-
