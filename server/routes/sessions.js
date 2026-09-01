@@ -43,7 +43,9 @@ router.get('/', async (req, res) => {
 // Détail d'un programme / d'une séance d'historique
 router.get('/:id(\\d+)', async (req, res) => {
   try {
-    const session = await getSessionFull(req.params.id, req.userId);
+    const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
+    if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
+    const session = await getSessionFull(sessionId, req.userId);
     if (!session) return res.status(404).json({ error: 'Séance introuvable' });
     res.json(session);
   } catch (e) {
@@ -54,11 +56,12 @@ router.get('/:id(\\d+)', async (req, res) => {
 // Créer un programme permanent (réutilisable à vie)
 router.post('/', async (req, res) => {
   const { name, notes, exercises } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nom du programme requis' });
+  const safeName = db.sanitizeText(name, { maxLength: 255 });
+  if (!safeName) return res.status(400).json({ error: 'Nom du programme requis' });
   try {
     const info = await db.run(
       'INSERT INTO sessions (user_id, name, date, notes, is_template) VALUES (?,?,?,?,1)',
-      req.userId, name, new Date().toISOString().slice(0, 10), notes || ''
+      req.userId, safeName, new Date().toISOString().slice(0, 10), db.sanitizeText(notes, { maxLength: 2000 }) || ''
     );
     const sessionId = info.lastInsertRowid;
 
@@ -92,14 +95,18 @@ router.post('/', async (req, res) => {
 // Modifier un programme (nom, exercices, groupes musculaires, objectifs)
 router.put('/:id(\\d+)', async (req, res) => {
   try {
-    const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', req.params.id, req.userId);
+    const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
+    if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
+    const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', sessionId, req.userId);
     if (!session) return res.status(404).json({ error: 'Séance introuvable' });
     const { name, notes, exercises } = req.body;
+    const safeName = name === undefined ? session.name : db.sanitizeText(name, { maxLength: 255 });
+    const safeNotes = notes === undefined ? session.notes : db.sanitizeText(notes, { maxLength: 2000 });
     await db.run('UPDATE sessions SET name = ?, notes = ? WHERE id = ?',
-      name ?? session.name, notes ?? session.notes, req.params.id);
+      safeName || session.name, safeNotes ?? session.notes, sessionId);
 
     if (Array.isArray(exercises)) {
-      const oldEx = await db.all('SELECT id FROM exercises WHERE session_id = ?', req.params.id);
+      const oldEx = await db.all('SELECT id FROM exercises WHERE session_id = ?', sessionId);
       for (const ex of oldEx) {
         await db.run('DELETE FROM sets WHERE exercise_id = ?', ex.id);
         await db.run('DELETE FROM exercises WHERE id = ?', ex.id);
@@ -109,7 +116,7 @@ router.put('/:id(\\d+)', async (req, res) => {
         const nb = ex.nb_sets || (Array.isArray(ex.sets) ? ex.sets.length : 0) || 3;
         const exInfo = await db.run(
           'INSERT INTO exercises (session_id, name, muscle_group, nb_sets, rest_seconds, sort_order) VALUES (?,?,?,?,?,?)',
-          req.params.id, ex.name, ex.muscle_group || null, nb, ex.rest_seconds || 90, order++
+          sessionId, db.sanitizeText(ex.name, { maxLength: 255 }) || 'Exercice', ex.muscle_group || null, nb, ex.rest_seconds || 90, order++
         );
         const exId = exInfo.lastInsertRowid;
         for (let i = 1; i <= nb; i++) {
@@ -191,17 +198,19 @@ router.put('/sets/:setId', async (req, res) => {
 // Réinitialiser la progression d'un programme (pour recommencer)
 router.post('/:id(\\d+)/reset', async (req, res) => {
   try {
-    const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', req.params.id, req.userId);
+    const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
+    if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
+    const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', sessionId, req.userId);
     if (!session) return res.status(404).json({ error: 'Séance introuvable' });
     // Réinitialise le poids des séries sur l'objectif (target_weight) et décoche tout
-    await db.run('UPDATE exercises SET done = 0 WHERE session_id = ?', req.params.id);
+    await db.run('UPDATE exercises SET done = 0 WHERE session_id = ?', sessionId);
     await db.run(`
       UPDATE sets s
       JOIN exercises e ON e.id = s.exercise_id
       SET s.done = 0, s.weight = s.target_weight, s.reps = 0
       WHERE e.session_id = ?
-    `, req.params.id);
-    res.json(await getSessionFull(req.params.id, req.userId));
+    `, sessionId);
+    res.json(await getSessionFull(sessionId, req.userId));
   } catch (e) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -210,13 +219,15 @@ router.post('/:id(\\d+)/reset', async (req, res) => {
 // Terminer une séance : enregistre une copie datée dans l'historique puis reset le programme
 router.post('/:id(\\d+)/complete', async (req, res) => {
   try {
-    const session = await getSessionFull(req.params.id, req.userId);
+    const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
+    if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
+    const session = await getSessionFull(sessionId, req.userId);
     if (!session) return res.status(404).json({ error: 'Séance introuvable' });
 
-    const date = req.body.date || new Date().toISOString().slice(0, 10);
+    const date = db.normalizeDate(req.body.date) || new Date().toISOString().slice(0, 10);
     const info = await db.run(
       'INSERT INTO sessions (user_id, name, date, notes, is_template) VALUES (?,?,?,?,0)',
-      req.userId, session.name, date, session.notes || ''
+      req.userId, db.sanitizeText(session.name, { maxLength: 255 }) || 'Séance', date, db.sanitizeText(session.notes, { maxLength: 2000 }) || ''
     );
     const newId = info.lastInsertRowid;
 
@@ -240,7 +251,7 @@ router.post('/:id(\\d+)/complete', async (req, res) => {
       JOIN exercises e ON e.id = s.exercise_id
       SET s.done = 0, s.weight = s.target_weight, s.reps = 0
       WHERE e.session_id = ?
-    `, req.params.id);
+    `, sessionId);
 
     res.status(201).json(await getSessionFull(newId, req.userId));
   } catch (e) {

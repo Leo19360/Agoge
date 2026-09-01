@@ -3,14 +3,17 @@
    Compatible local (Laragon) et cloud (Render/Aiven)
    ============================================ */
 const mysql = require('mysql2/promise');
+const fs = require('fs');
+const path = require('path');
 const { URL } = require('url');
+const { getEnv } = require('./config');
 
-const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'agoge';
-const DATABASE_URL = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MYSQL_DATABASE_URL || '';
+const DB_HOST = getEnv('DB_HOST', { defaultValue: 'localhost' });
+const DB_PORT = parseInt(getEnv('DB_PORT', { defaultValue: '3306' }), 10);
+const DB_USER = getEnv('DB_USER', { defaultValue: 'root' });
+const DB_PASSWORD = getEnv('DB_PASSWORD', { defaultValue: '' });
+const DB_NAME = getEnv('DB_NAME', { defaultValue: 'agoge' });
+const DATABASE_URL = getEnv('DATABASE_URL', { defaultValue: '' }) || getEnv('MYSQL_URL', { defaultValue: '' }) || getEnv('MYSQL_DATABASE_URL', { defaultValue: '' });
 
 function sslConfig() {
   const shouldUseSsl =
@@ -109,6 +112,35 @@ async function all(sql, ...params) {
 async function run(sql, ...params) {
   const [result] = await getPool().query(sql, params);
   return { lastInsertRowid: result.insertId, changes: result.affectedRows };
+}
+
+function sanitizeText(value, { maxLength = 255, allowEmpty = true } = {}) {
+  if (value === null || value === undefined) return allowEmpty ? null : null;
+  const str = String(value).trim();
+  if (!str) return allowEmpty ? null : null;
+  const cleaned = str.replace(/\s+/g, ' ');
+  return cleaned.length > maxLength ? cleaned.slice(0, maxLength) : cleaned;
+}
+
+function parsePositiveInt(value, min = 1, max = 1000000) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (!Number.isInteger(num)) return null;
+  if (num < min || num > max) return null;
+  return num;
+}
+
+function normalizeDate(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return null;
+  const date = new Date(`${str}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return str;
+}
+
+function escapeLikeTerm(value) {
+  return String(value || '').replace(/[\\%_]/g, '\\$&');
 }
 
 const TABLES = [
@@ -313,6 +345,52 @@ const TABLES = [
     unique_scans_n INT NULL,
     INDEX idx_code (code),
     INDEX idx_product_name (product_name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS generic_foods (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(100) NULL,
+    source_name VARCHAR(50) NOT NULL DEFAULT 'USDA',
+    source_url VARCHAR(500) NULL,
+    calories_per_100g DOUBLE DEFAULT 0,
+    protein_g_100g DOUBLE DEFAULT 0,
+    carbs_g_100g DOUBLE DEFAULT 0,
+    fat_g_100g DOUBLE DEFAULT 0,
+    fiber_g_100g DOUBLE DEFAULT 0,
+    sugar_g_100g DOUBLE DEFAULT 0,
+    salt_g_100g DOUBLE DEFAULT 0,
+    sodium_g_100g DOUBLE DEFAULT 0,
+    quantity VARCHAR(100) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_generic_name (name),
+    INDEX idx_generic_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS recipes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    serving_size_g DOUBLE DEFAULT 0,
+    calories DOUBLE DEFAULT 0,
+    proteins DOUBLE DEFAULT 0,
+    carbs DOUBLE DEFAULT 0,
+    fats DOUBLE DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+  `CREATE TABLE IF NOT EXISTS recipe_ingredients (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    recipe_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    grams DOUBLE DEFAULT 0,
+    calories_per_100g DOUBLE DEFAULT 0,
+    protein_g_100g DOUBLE DEFAULT 0,
+    carbs_g_100g DOUBLE DEFAULT 0,
+    fat_g_100g DOUBLE DEFAULT 0,
+    FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
@@ -429,6 +507,108 @@ async function seedExerciseLibrary() {
   }
 }
 
+async function seedSystemUser() {
+  try {
+    const [rows] = await getPool().query('SELECT COUNT(*) AS c FROM users WHERE email = ?', ['system@agoge.local']);
+    if (Number(rows[0].c) > 0) return;
+
+    await getPool().query(
+      'INSERT INTO users (email, password_hash, name, first_name) VALUES (?, ?, ?, ?)',
+      ['system@agoge.local', 'system', 'Système', 'Système']
+    );
+    console.log('✅ Seed users : compte système ajouté');
+  } catch (e) {
+    console.warn('⚠️  Seed users ignoré :', e.message);
+  }
+}
+
+async function seedGenericFoods() {
+  try {
+    const filePath = path.join(__dirname, '..', 'data', 'generic_foods_seed.json');
+    if (!fs.existsSync(filePath)) return;
+
+    const seedData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    for (const food of seedData) {
+      await getPool().query(
+        `INSERT INTO generic_foods (name, category, source_name, source_url, calories_per_100g, protein_g_100g, carbs_g_100g, fat_g_100g, fiber_g_100g, sugar_g_100g, salt_g_100g, sodium_g_100g, quantity)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE
+           category = VALUES(category),
+           source_name = VALUES(source_name),
+           source_url = VALUES(source_url),
+           calories_per_100g = VALUES(calories_per_100g),
+           protein_g_100g = VALUES(protein_g_100g),
+           carbs_g_100g = VALUES(carbs_g_100g),
+           fat_g_100g = VALUES(fat_g_100g),
+           fiber_g_100g = VALUES(fiber_g_100g),
+           sugar_g_100g = VALUES(sugar_g_100g),
+           salt_g_100g = VALUES(salt_g_100g),
+           sodium_g_100g = VALUES(sodium_g_100g),
+           quantity = VALUES(quantity)`,
+        [
+          food.name,
+          food.category || null,
+          food.source_name || 'USDA',
+          food.source_url || null,
+          food.calories_per_100g || 0,
+          food.protein_g_100g || 0,
+          food.carbs_g_100g || 0,
+          food.fat_g_100g || 0,
+          food.fiber_g_100g || 0,
+          food.sugar_g_100g || 0,
+          food.salt_g_100g || 0,
+          food.sodium_g_100g || 0,
+          food.quantity || '100 g'
+        ]
+      );
+    }
+    console.log('✅ Seed nutrition : aliments génériques USDA/CIQUAL ajoutés');
+  } catch (e) {
+    console.warn('⚠️  Seed nutrition ignoré :', e.message);
+  }
+}
+
+async function seedRecipes() {
+  try {
+    const filePath = path.join(__dirname, '..', 'data', 'recipes_seed.json');
+    if (!fs.existsSync(filePath)) return;
+
+    const seedData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const [systemUserRows] = await getPool().query('SELECT id FROM users WHERE email = ? LIMIT 1', ['system@agoge.local']);
+    const systemUserId = systemUserRows[0] ? Number(systemUserRows[0].id) : 1;
+
+    for (const recipe of seedData) {
+      const [existing] = await getPool().query('SELECT id FROM recipes WHERE user_id = ? AND name = ?', [systemUserId, recipe.name]);
+      let recipeId;
+
+      if (existing.length > 0) {
+        recipeId = existing[0].id;
+        await getPool().query(
+          'UPDATE recipes SET description = ?, serving_size_g = ?, calories = ?, proteins = ?, carbs = ?, fats = ? WHERE id = ?',
+          [recipe.description || '', recipe.serving_size_g || 100, recipe.calories || 0, recipe.proteins || 0, recipe.carbs || 0, recipe.fats || 0, recipeId]
+        );
+        await getPool().query('DELETE FROM recipe_ingredients WHERE recipe_id = ?', [recipeId]);
+      } else {
+        const [insert] = await getPool().query(
+          'INSERT INTO recipes (user_id, name, description, serving_size_g, calories, proteins, carbs, fats) VALUES (?,?,?,?,?,?,?,?)',
+          [systemUserId, recipe.name, recipe.description || '', recipe.serving_size_g || 100, recipe.calories || 0, recipe.proteins || 0, recipe.carbs || 0, recipe.fats || 0]
+        );
+        recipeId = insert.insertId;
+      }
+
+      for (const ingredient of recipe.ingredients || []) {
+        await getPool().query(
+          'INSERT INTO recipe_ingredients (recipe_id, name, grams, calories_per_100g, protein_g_100g, carbs_g_100g, fat_g_100g) VALUES (?,?,?,?,?,?,?)',
+          [recipeId, ingredient.name, ingredient.grams || 0, ingredient.calories_per_100g || 0, ingredient.protein_g_100g || 0, ingredient.carbs_g_100g || 0, ingredient.fat_g_100g || 0]
+        );
+      }
+    }
+    console.log('✅ Seed nutrition : recettes pré-remplies ajoutées');
+  } catch (e) {
+    console.warn('⚠️  Seed recettes ignoré :', e.message);
+  }
+}
+
 // Initialise la base + les tables
 async function init() {
   await ensureDatabase();
@@ -439,7 +619,20 @@ async function init() {
   await migrateSessionsColumns();
   await migrateV3();
   await seedExerciseLibrary();
+  await seedSystemUser();
+  await seedGenericFoods();
+  await seedRecipes();
 }
 
-module.exports = { get, all, run, pool: getPool, init };
+module.exports = {
+  get,
+  all,
+  run,
+  pool: getPool,
+  init,
+  sanitizeText,
+  parsePositiveInt,
+  normalizeDate,
+  escapeLikeTerm
+};
 

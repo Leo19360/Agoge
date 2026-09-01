@@ -33,7 +33,10 @@ const NutritionPage = (() => {
 
     try {
       const data = await API.nutrition.entries(selectedDate);
+      const recipes = await API.nutrition.recipes().catch(() => []);
       currentData = data;
+      // Met à jour l'affichage global des calories
+      try { if (window.updateHeaderCalories) window.updateHeaderCalories(currentData?.goal?.calories); } catch (e) {}
       const { entries, totals, goal } = data;
 
       const calStatus = goalStatus(totals.calories, goal?.calories);
@@ -49,7 +52,7 @@ const NutritionPage = (() => {
           </div>
           <button class="fe-del" onclick="NutritionPage.removeEntry(${e.id})">✕</button>
         </div>
-      `).join('') : `<div class="empty-state">Rien pour l'instant. Recherche un aliment ci-dessus pour commencer ton journal alimentaire ${agogeIcon('apple')}</div>`;
+      `).join('') : `<div class="empty-state">Rien pour l'instant. Recherche un aliment ou crée une recette pour commencer ton journal alimentaire ${agogeIcon('apple')}</div>`;
 
       container.innerHTML = `
         <div class="page-title">${agogeIcon('bowlFood')} Alimentation</div>
@@ -63,18 +66,27 @@ const NutritionPage = (() => {
             <span class="summary-pill">${agogeIcon('dumbbell')} ${Math.round(totals.proteins)}g prot</span>
             <span class="summary-pill">${agogeIcon('bread')} ${Math.round(totals.carbs)}g glucides</span>
           </div>
+          <div style="margin-top:10px">
+            <button class="btn btn-outline" onclick="NutritionPage.openCalculator()">${agogeIcon('fire')} Calculateur calorique</button>
+          </div>
         </div>
 
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">${agogeIcon('calendar')} Jour</div>
-              <div class="card-subtitle">Choisis la date</div>
+              <div class="card-title">${agogeIcon('calendar')} Choisis la date</div>
+              <div class="card-subtitle">Sélectionne le jour que tu veux éditer</div>
             </div>
+            <button class="btn btn-sm btn-outline" onclick="NutritionPage.goalModal()">${agogeIcon('sliders')} Objectifs</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
             <input type="date" value="${selectedDate}" onchange="NutritionPage.setDate(this.value)" style="padding:8px;background:var(--bg-input);border:1px solid #333;border-radius:8px;color:var(--text);font-size:13px">
           </div>
           <div class="search-bar">
-            <input type="text" id="food-search" placeholder="Rechercher un aliment (ex: poulet, riz...)" onkeydown="if(event.key==='Enter')NutritionPage.search()">
+            <div style="display:flex;flex-direction:column;flex:1">
+              <div style="font-size:13px;color:var(--text-dim);margin-bottom:6px">Recherche d'aliment</div>
+              <input type="text" id="food-search" placeholder="Rechercher un aliment (ex: poulet, riz...)" onkeydown="if(event.key==='Enter')NutritionPage.search()">
+            </div>
             <button class="btn btn-outline" title="Scanner un code-barres" onclick="NutritionPage.scanBarcode()">${agogeIcon('camera')}</button>
             <button class="btn btn-primary" onclick="NutritionPage.search()">${agogeIcon('magnify')}</button>
           </div>
@@ -123,6 +135,27 @@ const NutritionPage = (() => {
             <button class="btn btn-sm btn-outline" onclick="NutritionPage.goalModal()">${agogeIcon('sliders')} Objectifs</button>
           </div>
           ${entriesHtml}
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">${agogeIcon('bowlFood')} Recettes rapides</div>
+              <div class="card-subtitle">Ajoute un plat complet en un clic</div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="NutritionPage.createRecipeModal()">+Créer</button>
+          </div>
+          <div style="display:grid;gap:8px">
+            ${recipes.length ? recipes.map((recipe) => `
+              <div class="recipe-card">
+                <div class="f-name">${recipe.name}</div>
+                <div class="recipe-meta">${Math.round(recipe.calories)} kcal • P ${Math.round(recipe.proteins)}g • G ${Math.round(recipe.carbs)}g • L ${Math.round(recipe.fats)}g</div>
+                <div class="recipe-actions">
+                  <button class="btn btn-sm btn-outline" onclick="NutritionPage.addRecipe(${recipe.id})">Ajouter</button>
+                </div>
+              </div>
+            `).join('') : '<div class="empty-state">Aucune recette pour le moment. Crée ta première recette pour gagner du temps.</div>'}
+          </div>
         </div>
 
         ${await statsHtml()}
@@ -202,6 +235,7 @@ const NutritionPage = (() => {
         <div class="f-info">
           <div class="f-name">${r.name} ${nutriscoreBadge(r.nutriscore)}</div>
           ${r.brands ? `<div class="f-brand">${r.brands}</div>` : ''}
+          ${r._generic ? `<div class="f-brand">Source : ${r.sourceLabel || 'USDA / CIQUAL'}</div>` : ''}
           <div class="f-nutri">${macroLine(r)}</div>
         </div>
         <button class="f-add" title="Voir le détail">›</button>
@@ -218,6 +252,14 @@ const NutritionPage = (() => {
     resultsDiv.innerHTML = `<div class="empty-state">${agogeIcon('magnify')} Recherche en cours…</div>`;
     try {
       searchResults = await API.searchFood(query);
+      // Filter out items with no nutrition to keep results relevant
+      searchResults = (searchResults || []).filter((f) => {
+        const cals = Number(f.calories || f.calories_per_100g || 0);
+        const prot = Number(f.proteins || f.protein_g_100g || 0);
+        const carbs = Number(f.carbs || f.carbs_g_100g || 0);
+        const fats = Number(f.fats || f.fat_g_100g || 0);
+        return (cals || prot || carbs || fats) > 0;
+      });
       if (requestId !== searchRequestId) return;
       resultsDiv.innerHTML = searchResults.length
         ? searchResults.map(foodResultHtml).join('')
@@ -225,6 +267,74 @@ const NutritionPage = (() => {
     } catch (e) {
       if (requestId !== searchRequestId) return;
       resultsDiv.innerHTML = `<div class="empty-state">${agogeIcon('warning')} Recherche impossible pour l’instant. Réessaie dans quelques secondes.</div>`;
+    }
+  }
+
+  function createRecipeModal() {
+    showModal(`
+      <h3>Créer une recette <button class="modal-close" onclick="closeModal()">✕</button></h3>
+      <div class="modal-field">
+        <label>Nom</label>
+        <input type="text" id="recipe-name" placeholder="Ex : Bowl poulet riz">
+      </div>
+      <div class="modal-field">
+        <label>Ingrédients (format simple)</label>
+        <textarea id="recipe-ingredients" placeholder="Poulet blanc 200g
+Riz blanc cuit 250g"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="NutritionPage.saveRecipe()">Enregistrer la recette</button>
+    `);
+  }
+
+  async function saveRecipe() {
+    const name = document.getElementById('recipe-name').value.trim();
+    const rawIngredients = document.getElementById('recipe-ingredients').value.trim();
+    if (!name || !rawIngredients) {
+      showToast(`${agogeIcon('warning')} Nom et ingrédients requis`);
+      return;
+    }
+
+    const ingredients = rawIngredients.split(/\n+/).filter(Boolean).map((line) => {
+      const match = line.trim().match(/^(.*?)\s+(\d+(?:[.,]\d+)?)\s*(g|kg|ml|cl|l)$/i);
+      if (!match) return null;
+      const [, ingredientName, amountRaw, unit] = match;
+      const amount = parseFloat(amountRaw.replace(',', '.'));
+      const grams = unit.toLowerCase() === 'g' ? amount : unit.toLowerCase() === 'kg' ? amount * 1000 : amount;
+      return {
+        name: ingredientName.trim(),
+        grams,
+        calories_per_100g: 0,
+        protein_g_100g: 0,
+        carbs_g_100g: 0,
+        fat_g_100g: 0
+      };
+    }).filter(Boolean);
+
+    if (!ingredients.length) {
+      showToast(`${agogeIcon('warning')} Format invalide`);
+      return;
+    }
+
+    try {
+      closeModal();
+      const recipe = await API.nutrition.createRecipe({ name, ingredients });
+      showToast(`${agogeIcon('check')} Recette créée`);
+      render();
+      if (recipe && recipe.id) {
+        await API.nutrition.addRecipe(recipe.id, { date: selectedDate, meal_type: 'dejeuner' });
+      }
+    } catch (e) {
+      showToast(`${agogeIcon('warning')} ${e.message}`);
+    }
+  }
+
+  async function addRecipe(id) {
+    try {
+      await API.nutrition.addRecipe(id, { date: selectedDate, meal_type: 'dejeuner' });
+      showToast(`${agogeIcon('check')} Recette ajoutée au journal`);
+      render();
+    } catch (e) {
+      showToast(`${agogeIcon('warning')} ${e.message}`);
     }
   }
 
@@ -438,11 +548,15 @@ const NutritionPage = (() => {
   // ---------- OBJECTIFS ----------
   function goalModal() {
     const goal = currentData?.goal || {};
+    // Affiche le formulaire d'objectifs avec un bouton pour ouvrir le calculateur
     showModal(`
       <h3>Objectifs nutritionnels <button class="modal-close" onclick="closeModal()">✕</button></h3>
       <div class="modal-field">
         <label>${agogeIcon('fire')} Calories (kcal)</label>
-        <input type="number" id="goal-calories" value="${goal.calories || 2000}" min="0">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="goal-calories" value="${goal.calories || 2000}" min="0">
+          <button class="btn btn-outline" id="open-calculator">Calculateur</button>
+        </div>
       </div>
       <div class="modal-field">
         <label>${agogeIcon('dumbbell')} Protéines (g)</label>
@@ -456,8 +570,56 @@ const NutritionPage = (() => {
         <label>${agogeIcon('seedling')} Lipides (g)</label>
         <input type="number" id="goal-fats" value="${goal.fats || 70}" min="0">
       </div>
-      <button class="btn btn-primary btn-block" onclick="NutritionPage.saveGoals()">${agogeIcon('save')} Enregistrer</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary btn-block" onclick="NutritionPage.saveGoals()">${agogeIcon('save')} Enregistrer</button>
+      </div>
     `);
+
+    // handler: ouvrir le calculateur et pré-remplir calories sans fermer le modal
+    const calcBtn = document.getElementById('open-calculator');
+    if (calcBtn && window.CalorieCalculator) {
+      calcBtn.addEventListener('click', () => {
+        CalorieCalculator.showModal({
+          state: { weight: '', height: '', age: '' },
+          onUse: (kcal, opts) => {
+            const el = document.getElementById('goal-calories');
+            if (el) el.value = Number(kcal) || '';
+            // keep the goals modal open so user can adjust macros and save
+          }
+        });
+      });
+    }
+  }
+
+  // Ouvre directement le calculateur depuis l'interface (bouton visible)
+  function openCalculator() {
+    const goal = currentData?.goal || {};
+    if (window.CalorieCalculator) {
+      CalorieCalculator.showModal({
+        state: { weight: '', height: '', age: '' },
+        onUse: async (kcal, opts) => {
+          // Save directly the calculated goals (calories + macros) instead of opening a second modal
+          try {
+            const payload = {
+              calories: Number(kcal) || goal.calories || 2000,
+              proteins: (opts && opts.macros && opts.macros.proteinsG) || goal.proteins || 150,
+              carbs: (opts && opts.macros && opts.macros.carbsG) || goal.carbs || 250,
+              fats: (opts && opts.macros && opts.macros.fatsG) || goal.fats || 70
+            };
+            await API.nutrition.setGoals(payload);
+            try { if (window.updateHeaderCalories) window.updateHeaderCalories(payload.calories); } catch (e) {}
+            closeModal();
+            showToast(`${agogeIcon('sliders')} Objectifs enregistrés`);
+            render();
+          } catch (e) {
+            showToast(`${agogeIcon('warning')} ${e.message}`);
+          }
+        }
+      });
+    } else {
+      // fallback: open goal modal
+      goalModal();
+    }
   }
 
   async function saveGoals() {
@@ -469,6 +631,7 @@ const NutritionPage = (() => {
     };
     try {
       await API.nutrition.setGoals(data);
+      try { if (window.updateHeaderCalories) window.updateHeaderCalories(data.calories); } catch (e) {}
       closeModal();
       showToast(`${agogeIcon('sliders')} Objectifs enregistrés`);
       render();
@@ -514,7 +677,8 @@ const NutritionPage = (() => {
     loadScannedProduct,
     manualBarcodeModal,
     goalModal,
-    saveGoals
+    saveGoals,
+    openCalculator
   };
 })();
 

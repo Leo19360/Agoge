@@ -114,8 +114,11 @@ const SessionsPage = (() => {
   }
 
   function progPct(s) {
-    if (!s || !s.nb_exercises) return 0;
-    return Math.round((s.done_exercises || 0) / s.nb_exercises * 100);
+    if (!s) return 0;
+    const total = Number(s.total_exercises || s.nb_exercises || (s.exercises ? s.exercises.length : 0)) || 0;
+    const done = Number(s.done_exercises || (s.exercises ? s.exercises.filter((e) => Number(e.done)).length : 0)) || 0;
+    if (total === 0) return 0;
+    return Math.round((done / total) * 100);
   }
 
   // ---------- DÉTAIL / ENTRAÎNEMENT ----------

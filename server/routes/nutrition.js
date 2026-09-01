@@ -2,13 +2,21 @@ const express = require('express');
 const https = require('https');
 const db = require('../db');
 const { authMiddleware } = require('./auth');
+const { mergeNutritionResults, loadReferenceFoods } = require('../foodSearch');
+const { calculateRecipeTotals, resolveRecipeIngredients } = require('../recipeEngine');
 
 const router = express.Router();
 router.use(authMiddleware);
 
 // Total macros pour une date
+function safeNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
 async function totalsForDate(userId, date) {
-  const rows = await db.all('SELECT calories, proteins, carbs, fats FROM food_entries WHERE user_id = ? AND date = ?', userId, date);
+  const safeDate = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
+  const rows = await db.all('SELECT calories, proteins, carbs, fats FROM food_entries WHERE user_id = ? AND date = ?', userId, safeDate);
   const t = { calories: 0, proteins: 0, carbs: 0, fats: 0, count: rows.length };
   for (const r of rows) {
     t.calories += r.calories || 0;
@@ -30,7 +38,7 @@ function normalizeMealType(mt) {
 // Repas d'une date
 router.get('/entries', async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().slice(0, 10);
+    const date = db.normalizeDate(req.query.date) || new Date().toISOString().slice(0, 10);
     const entries = await db.all('SELECT * FROM food_entries WHERE user_id = ? AND date = ? ORDER BY id DESC', req.userId, date);
     const totals = await totalsForDate(req.userId, date);
     const goal = await db.get('SELECT * FROM goals WHERE user_id = ?', req.userId);
@@ -43,16 +51,18 @@ router.get('/entries', async (req, res) => {
 // Ajouter un aliment
 router.post('/entries', async (req, res) => {
   const { date, food_name, quantity, unit, meal_type, calories, proteins, carbs, fats } = req.body;
-  if (!food_name) return res.status(400).json({ error: 'Nom de l\'aliment requis' });
-  if (quantity !== undefined && (isNaN(quantity) || quantity < 0)) {
+  const safeName = db.sanitizeText(food_name, { maxLength: 255 });
+  if (!safeName) return res.status(400).json({ error: 'Nom de l\'aliment requis' });
+  const safeQuantity = quantity === undefined ? 100 : Number(quantity);
+  if (!Number.isFinite(safeQuantity) || safeQuantity < 0 || safeQuantity > 10000) {
     return res.status(400).json({ error: 'Quantité invalide' });
   }
   const mt = normalizeMealType(meal_type);
   try {
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
     const info = await db.run(
       'INSERT INTO food_entries (user_id, date, food_name, quantity, unit, meal_type, calories, proteins, carbs, fats) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      req.userId, d, food_name, quantity || 100, unit || 'g', mt, calories || 0, proteins || 0, carbs || 0, fats || 0
+      req.userId, d, safeName, safeQuantity, db.sanitizeText(unit, { maxLength: 10 }) || 'g', mt, safeNumber(calories, 0), safeNumber(proteins, 0), safeNumber(carbs, 0), safeNumber(fats, 0)
     );
     const entry = await db.get('SELECT * FROM food_entries WHERE id = ?', info.lastInsertRowid);
     res.status(201).json({ entry, totals: await totalsForDate(req.userId, d), goal: await db.get('SELECT * FROM goals WHERE user_id = ?', req.userId) });
@@ -67,20 +77,25 @@ router.put('/entries/:id', async (req, res) => {
     const entry = await db.get('SELECT * FROM food_entries WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!entry) return res.status(404).json({ error: 'Entrée introuvable' });
     const { quantity, unit, meal_type, calories, proteins, carbs, fats, food_name } = req.body;
+    const safeName = food_name === undefined ? entry.food_name : db.sanitizeText(food_name, { maxLength: 255 });
     const mt = normalizeMealType(meal_type);
+    const safeQuantity = quantity === undefined ? entry.quantity : Number(quantity);
+    if (!Number.isFinite(safeQuantity) || safeQuantity < 0 || safeQuantity > 10000) {
+      return res.status(400).json({ error: 'Quantité invalide' });
+    }
     await db.run(
       `UPDATE food_entries SET
         food_name = ?, quantity = ?, unit = ?, meal_type = ?,
         calories = ?, proteins = ?, carbs = ?, fats = ?
        WHERE id = ?`,
-      food_name ?? entry.food_name,
-      quantity !== undefined ? quantity : entry.quantity,
-      unit || entry.unit,
+      safeName || entry.food_name,
+      safeQuantity,
+      db.sanitizeText(unit, { maxLength: 10 }) || entry.unit,
       mt !== null ? mt : entry.meal_type,
-      calories !== undefined ? calories : entry.calories,
-      proteins !== undefined ? proteins : entry.proteins,
-      carbs !== undefined ? carbs : entry.carbs,
-      fats !== undefined ? fats : entry.fats,
+      safeNumber(calories, entry.calories),
+      safeNumber(proteins, entry.proteins),
+      safeNumber(carbs, entry.carbs),
+      safeNumber(fats, entry.fats),
       req.params.id
     );
     const updated = await db.get('SELECT * FROM food_entries WHERE id = ?', req.params.id);
@@ -106,6 +121,10 @@ router.delete('/entries/:id', async (req, res) => {
 router.put('/goals', async (req, res) => {
   const { calories, proteins, carbs, fats } = req.body;
   try {
+    const safeCalories = safeNumber(calories, 0);
+    const safeProteins = safeNumber(proteins, 0);
+    const safeCarbs = safeNumber(carbs, 0);
+    const safeFats = safeNumber(fats, 0);
     await db.run(`
       INSERT INTO goals (user_id, calories, proteins, carbs, fats)
       VALUES (?,?,?,?,?)
@@ -114,7 +133,7 @@ router.put('/goals', async (req, res) => {
         proteins = VALUES(proteins),
         carbs = VALUES(carbs),
         fats = VALUES(fats)
-    `, req.userId, calories || 0, proteins || 0, carbs || 0, fats || 0);
+    `, req.userId, safeCalories, safeProteins, safeCarbs, safeFats);
     res.json(await db.get('SELECT * FROM goals WHERE user_id = ?', req.userId));
   } catch (e) {
     res.status(500).json({ error: 'Erreur serveur' });
@@ -147,9 +166,9 @@ router.get('/water', async (req, res) => {
 router.post('/water', async (req, res) => {
   const { amount_ml, date } = req.body;
   try {
-    const d = date || new Date().toISOString().slice(0, 10);
-    const a = parseInt(amount_ml, 10);
-    if (isNaN(a) || a < 1 || a > 2000) {
+    const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
+    const a = db.parsePositiveInt(amount_ml, 1, 2000);
+    if (!a) {
       return res.status(400).json({ error: 'Quantité invalide (1-2000 ml)' });
     }
     const info = await db.run(
@@ -179,8 +198,8 @@ router.delete('/water/:id', async (req, res) => {
 router.put('/water-goal', async (req, res) => {
   const { goal_ml } = req.body;
   try {
-    const g = parseInt(goal_ml, 10);
-    if (isNaN(g) || g < 100 || g > 10000) {
+    const g = db.parsePositiveInt(goal_ml, 100, 10000);
+    if (!g) {
       return res.status(400).json({ error: 'Objectif invalide (100-10000 ml)' });
     }
     await db.run(`
@@ -195,6 +214,64 @@ router.put('/water-goal', async (req, res) => {
 });
 
 // ---- RECHERCHE LOCALE D'ALIMENTS (table aliments) ----
+async function searchGenericFoods(q, limit) {
+  const term = (q || '').trim();
+  if (!term) return [];
+
+  try {
+    const rows = await db.all(
+      `SELECT id, name, category, source_name, source_url, calories_per_100g, protein_g_100g, carbs_g_100g, fat_g_100g, fiber_g_100g, sugar_g_100g, salt_g_100g, sodium_g_100g, quantity
+       FROM generic_foods
+       WHERE name LIKE ? OR category LIKE ?
+       ORDER BY name ASC
+       LIMIT ?`,
+      `%${term}%`, `%${term}%`, limit
+    );
+
+    if (rows && rows.length) {
+      return rows.map((row) => ({
+        ...row,
+        calories: Number(row.calories_per_100g || 0),
+        proteins: Number(row.protein_g_100g || 0),
+        carbs: Number(row.carbs_g_100g || 0),
+        fats: Number(row.fat_g_100g || 0),
+        fibers: Number(row.fiber_g_100g || 0),
+        sugars: Number(row.sugar_g_100g || 0),
+        salt: Number(row.salt_g_100g || 0),
+        sodium: Number(row.sodium_g_100g || 0),
+        _generic: true,
+        sourceLabel: 'USDA / CIQUAL',
+        quantity: row.quantity || '100 g'
+      }));
+    }
+  } catch (error) {
+    // ignore and fallback to bundled seed data
+  }
+
+  return loadReferenceFoods()
+    .filter((food) => {
+      const haystack = `${food.name || ''} ${food.category || ''}`.toLowerCase();
+      return haystack.includes(term.toLowerCase());
+    })
+    .slice(0, limit)
+    .map((food) => ({
+      id: food.id,
+      name: food.name,
+      category: food.category || null,
+      calories: Number(food.calories_per_100g || 0),
+      proteins: Number(food.protein_g_100g || 0),
+      carbs: Number(food.carbs_g_100g || 0),
+      fats: Number(food.fat_g_100g || 0),
+      fibers: Number(food.fiber_g_100g || 0),
+      sugars: Number(food.sugar_g_100g || 0),
+      salt: Number(food.salt_g_100g || 0),
+      sodium: Number(food.sodium_g_100g || 0),
+      _generic: true,
+      sourceLabel: 'USDA / CIQUAL',
+      quantity: food.quantity || '100 g'
+    }));
+}
+
 function fetchJson(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers: { Accept: 'application/json' } }, (res) => {
@@ -280,9 +357,10 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json([]);
     const limit = Math.min(parseInt(req.query.limit || '20', 10), 50);
 
+    let localRows = [];
     try {
       const like = `%${q}%`;
-      const rows = await db.all(
+      localRows = await db.all(
         `SELECT code as id, product_name as name, generic_name, brands, quantity,
                 image_url as image, energy_kcal_100g as calories,
                 proteins_100g as proteins, carbohydrates_100g as carbs,
@@ -295,22 +373,106 @@ router.get('/search', async (req, res) => {
          LIMIT ?`,
         like, like, like, limit
       );
-
-      if (rows && rows.length) {
-        return res.json(rows.map(r => ({
-          ...r,
-          _local: true,
-          liquid: r.quantity ? /ml|cl|l\b/i.test(r.quantity) : false
-        })));
-      }
     } catch (dbError) {
       // ignore and fallback to OpenFoodFacts
     }
 
+    const genericFoods = await searchGenericFoods(q, limit);
     const remoteResults = await searchOpenFoodFacts(q, limit);
-    return res.json(remoteResults);
+    const merged = mergeNutritionResults({
+      query: q,
+      genericFoods,
+      localFoods: (localRows || []).map((r) => ({
+        ...r,
+        _local: true,
+        liquid: r.quantity ? /ml|cl|l\b/i.test(r.quantity) : false
+      })),
+      remoteFoods: remoteResults,
+      limit
+    });
+
+    return res.json(merged);
   } catch (e) {
     res.status(500).json({ error: 'Recherche impossible pour le moment. Réessaie dans quelques secondes.' });
+  }
+});
+
+// Recipes
+router.get('/recipes', async (req, res) => {
+  try {
+    const systemUser = await db.get('SELECT id FROM users WHERE email = ? LIMIT 1', 'system@agoge.local');
+    const systemUserId = systemUser ? Number(systemUser.id) : null;
+    const params = [req.userId];
+    const whereClause = systemUserId !== null ? 'WHERE r.user_id = ? OR r.user_id = ?' : 'WHERE r.user_id = ?';
+    if (systemUserId !== null) params.push(systemUserId);
+
+    const recipes = await db.all(
+      `SELECT r.id, r.name, r.description, r.serving_size_g, r.calories, r.proteins, r.carbs, r.fats,
+              JSON_ARRAYAGG(JSON_OBJECT('name', ri.name, 'grams', ri.grams, 'calories_per_100g', ri.calories_per_100g, 'protein_g_100g', ri.protein_g_100g, 'carbs_g_100g', ri.carbs_g_100g, 'fat_g_100g', ri.fat_g_100g)) AS ingredients
+       FROM recipes r
+       LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+       ${whereClause}
+       GROUP BY r.id
+       ORDER BY r.id DESC`,
+      ...params
+    );
+
+    const normalized = recipes.map((recipe) => ({
+      ...recipe,
+      ingredients: recipe.ingredients ? JSON.parse(recipe.ingredients) : []
+    }));
+
+    res.json(normalized);
+  } catch (e) {
+    res.status(500).json({ error: 'Impossible de charger les recettes' });
+  }
+});
+
+router.post('/recipes', async (req, res) => {
+  try {
+    const { name, description, ingredients = [] } = req.body;
+    if (!name || !Array.isArray(ingredients) || ingredients.length === 0) {
+      return res.status(400).json({ error: 'Nom et ingrédients requis' });
+    }
+
+    const lookupRows = await db.all('SELECT name, category, calories_per_100g, protein_g_100g, carbs_g_100g, fat_g_100g FROM generic_foods');
+    const resolvedIngredients = resolveRecipeIngredients(ingredients, lookupRows);
+    const totals = calculateRecipeTotals({ name, ingredients: resolvedIngredients });
+    const recipeInfo = await db.run(
+      `INSERT INTO recipes (user_id, name, description, serving_size_g, calories, proteins, carbs, fats)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      req.userId, name, description || '', totals.serving_size_g, totals.calories, totals.proteins, totals.carbs, totals.fats
+    );
+
+    const recipeId = recipeInfo.lastInsertRowid;
+    for (const ingredient of resolvedIngredients) {
+      await db.run(
+        `INSERT INTO recipe_ingredients (recipe_id, name, grams, calories_per_100g, protein_g_100g, carbs_g_100g, fat_g_100g)
+         VALUES (?,?,?,?,?,?,?)`,
+        recipeId, ingredient.name, ingredient.grams, ingredient.calories_per_100g || 0, ingredient.protein_g_100g || 0, ingredient.carbs_g_100g || 0, ingredient.fat_g_100g || 0
+      );
+    }
+
+    res.status(201).json({ id: recipeId, ...totals, description: description || '', ingredients: resolvedIngredients });
+  } catch (e) {
+    res.status(500).json({ error: 'Impossible de créer la recette' });
+  }
+});
+
+router.post('/recipes/:id/add', async (req, res) => {
+  try {
+    const recipe = await db.get('SELECT * FROM recipes WHERE id = ? AND user_id = ?', req.params.id, req.userId);
+    if (!recipe) return res.status(404).json({ error: 'Recette introuvable' });
+
+    const date = req.body.date || new Date().toISOString().slice(0, 10);
+    const info = await db.run(
+      'INSERT INTO food_entries (user_id, date, food_name, quantity, unit, meal_type, calories, proteins, carbs, fats) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      req.userId, date, recipe.name, recipe.serving_size_g || 100, 'g', normalizeMealType(req.body.meal_type), recipe.calories || 0, recipe.proteins || 0, recipe.carbs || 0, recipe.fats || 0
+    );
+    const entry = await db.get('SELECT * FROM food_entries WHERE id = ?', info.lastInsertRowid);
+    res.status(201).json({ entry, totals: await totalsForDate(req.userId, date), goal: await db.get('SELECT * FROM goals WHERE user_id = ?', req.userId) });
+  } catch (e) {
+    res.status(500).json({ error: 'Impossible d’ajouter la recette' });
   }
 });
 

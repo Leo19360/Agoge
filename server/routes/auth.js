@@ -7,10 +7,12 @@ const router = express.Router();
 
 // JWT_SECRET : en production, il devrait être défini via l'environnement,
 // mais un fallback local stable évite les blocages si la variable n'a pas encore été injectée.
+const { getEnv } = require('../config');
+
 let JWT_SECRET;
 function getSecret() {
   if (!JWT_SECRET) {
-    JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'agoge-production-secret-change-me';
+    JWT_SECRET = getEnv('JWT_SECRET', { defaultValue: '' }) || getEnv('SESSION_SECRET', { defaultValue: '' }) || 'agoge-production-secret-change-me';
     if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
       console.warn('⚠️ JWT_SECRET absent, utilisation d\'un fallback local pour éviter un blocage de l\'authentification.');
     }

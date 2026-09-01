@@ -9,7 +9,6 @@ const ThemeManager = (() => {
     { id: 'noir', label: 'Spartan noir', desc: 'Rouge & noir', primary: '#e8214f', accent: '#e8214f' },
     { id: 'marbre', label: 'Marbre & bronze', desc: 'Clair antique', primary: '#a5652f', accent: '#7c8c5f' },
     { id: 'militaire', label: 'Militaire tactique', desc: 'Olive & orange', primary: '#d97b29', accent: '#8fae4f' },
-    { id: 'minimal', label: 'Ascèse minimaliste', desc: 'Pur & sobre', primary: '#e8214f', accent: '#f0f0f0' },
     { id: 'arene', label: 'Arène', desc: 'Bordeaux & or', primary: '#7a1f1f', accent: '#c9a35a' }
   ];
 

@@ -30,14 +30,15 @@ router.get('/weight', async (req, res) => {
 
 router.post('/weight', async (req, res) => {
   const { date, weight } = req.body;
-  if (!weight) return res.status(400).json({ error: 'Poids requis' });
+  const safeWeight = Number(weight);
+  if (!Number.isFinite(safeWeight) || safeWeight <= 0 || safeWeight > 500) return res.status(400).json({ error: 'Poids requis' });
   try {
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
     // Chaque validation de poids est ENREGISTRÉE (aucune suppression) :
     // on garde tous les relevés pour tracer l'évolution dans le graphique.
     const info = await db.run(
       'INSERT INTO weight_entries (user_id, date, weight) VALUES (?,?,?)',
-      req.userId, d, weight
+      req.userId, d, safeWeight
     );
     res.status(201).json(await db.get('SELECT * FROM weight_entries WHERE id = ?', info.lastInsertRowid));
   } catch (e) {
@@ -69,10 +70,10 @@ router.get('/measurements', async (req, res) => {
 router.post('/measurements', async (req, res) => {
   const { date, waist, chest, arms, thighs, hips, shoulders, notes } = req.body;
   try {
-    const d = date || new Date().toISOString().slice(0, 10);
+    const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
     const info = await db.run(
       'INSERT INTO body_measurements (user_id, date, waist, chest, arms, thighs, hips, shoulders, notes) VALUES (?,?,?,?,?,?,?,?,?)',
-      req.userId, d, waist || null, chest || null, arms || null, thighs || null, hips || null, shoulders || null, notes || null
+      req.userId, d, Number.isFinite(Number(waist)) ? Number(waist) : null, Number.isFinite(Number(chest)) ? Number(chest) : null, Number.isFinite(Number(arms)) ? Number(arms) : null, Number.isFinite(Number(thighs)) ? Number(thighs) : null, Number.isFinite(Number(hips)) ? Number(hips) : null, Number.isFinite(Number(shoulders)) ? Number(shoulders) : null, db.sanitizeText(notes, { maxLength: 1000 }) || null
     );
     res.status(201).json(await db.get('SELECT * FROM body_measurements WHERE id = ?', info.lastInsertRowid));
   } catch (e) {

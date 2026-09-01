@@ -641,6 +641,8 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   margin-top: 12px;
 }
 
+.mini-stat-grid { margin-bottom: 12px; }
+
 .mini-stat {
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
@@ -738,6 +740,7 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 16px;
+  margin-top: 12px;
 }
 
 .stat-card {
@@ -1734,10 +1737,44 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: var(--bg-card);
+  background: linear-gradient(145deg, var(--bg-card), #1a1a21);
+  border: 1px solid rgba(255,255,255,0.04);
   border-radius: var(--radius-sm);
   margin-bottom: 8px;
   box-shadow: var(--shadow);
+}
+
+.meal-section {
+  margin-top: 14px;
+}
+
+.meal-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--spartan-bronze);
+  margin-bottom: 8px;
+}
+
+.recipe-card {
+  background: linear-gradient(145deg, var(--bg-card), #1a1a21);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.recipe-card .recipe-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.recipe-card .recipe-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .food-entry .fe-name {
@@ -1759,6 +1796,33 @@ button, a, input, select, textarea, label, .nav-item, .btn, .icon-btn {
 }
 
 /* Weekly average */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.quick-stats .stat-chip {
+  background: linear-gradient(145deg, var(--bg-card), #1a1a21);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.quick-stats .stat-chip .stat-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.quick-stats .stat-chip .stat-value {
+  font-size: 16px;
+  font-weight: 900;
+}
+
 .week-avg {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2301,6 +2365,11 @@ html[data-theme] body {
 }
 [data-theme="militaire"] .card { border-style:dashed; }
 [data-theme="militaire"] .btn-primary { color:#1c1f16; }
+/* Atténuer l'effet de voile jaune pour le thème militaire */
+[data-theme="militaire"] body {
+  background: var(--bg);
+  background-image: none;
+}
 
 /* ============ THEME 4 : ASCÈSE MINIMALISTE ============ */
 [data-theme="minimal"] {

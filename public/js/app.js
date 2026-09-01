@@ -220,13 +220,59 @@ const App = (() => {
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);
   }
 
+  // Met à jour l'affichage des calories dans l'en-tête
+  function updateHeaderCalories(kcal) {
+    const el = document.getElementById('header-goal-calories');
+    if (!el) return;
+    if (kcal && !isNaN(kcal) && Number(kcal) > 0) {
+      el.textContent = `${Math.round(kcal)} kcal`; el.style.display = 'inline-block';
+    } else {
+      el.textContent = ''; el.style.display = 'none';
+    }
+  }
+
+  // Raccourci global pour ouvrir le calculateur: appuie sur K
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key && ev.key.toLowerCase() === 'k' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+      ev.preventDefault();
+      if (window.NutritionPage && typeof NutritionPage.openCalculator === 'function') {
+        NutritionPage.openCalculator();
+        return;
+      }
+      if (window.CalorieCalculator && typeof CalorieCalculator.showModal === 'function') {
+        CalorieCalculator.showModal({ onUse: (kcal) => { alert('Calculateur: ' + kcal + ' kcal'); } });
+        return;
+      }
+    }
+  });
+
   // ---------- START ----------
   document.addEventListener('DOMContentLoaded', () => {
     setupAuthForms();
+    // Setup global calculator button
+    const gb = document.getElementById('global-calculator-btn');
+    if (gb) {
+      gb.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Prefer NutritionPage handler which shows save form; fallback to CalorieCalculator
+        if (window.NutritionPage && typeof NutritionPage.openCalculator === 'function') {
+          NutritionPage.openCalculator();
+          return;
+        }
+        if (window.CalorieCalculator && typeof CalorieCalculator.showModal === 'function') {
+          CalorieCalculator.showModal({ onUse: (kcal) => { alert('Calculateur: ' + kcal + ' kcal'); } });
+          return;
+        }
+        alert('Calculateur indisponible');
+      });
+    }
+
     init();
   });
 
-  return { navigate, syncOffline };
+  // Expose helper to global scope so other modules can update header calories
+  window.updateHeaderCalories = updateHeaderCalories;
+  return { navigate, syncOffline, updateHeaderCalories };
 })();
 
 window.App = App;

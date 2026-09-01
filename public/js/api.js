@@ -227,7 +227,10 @@ const API = (() => {
     addEntry: (data) => request('/api/nutrition/entries', { method: 'POST', body: JSON.stringify(data) }),
     removeEntry: (id) => request(`/api/nutrition/entries/${id}`, { method: 'DELETE' }),
     setGoals: (data) => request('/api/nutrition/goals', { method: 'PUT', body: JSON.stringify(data) }),
-    stats: () => request('/api/nutrition/stats', {}, true)
+    stats: () => request('/api/nutrition/stats', {}, true),
+    recipes: () => request('/api/nutrition/recipes', {}, true),
+    createRecipe: (data) => request('/api/nutrition/recipes', { method: 'POST', body: JSON.stringify(data) }),
+    addRecipe: (id, data) => request(`/api/nutrition/recipes/${id}/add`, { method: 'POST', body: JSON.stringify(data) })
   };
 
   // ---- BODY ----

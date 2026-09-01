@@ -3,15 +3,17 @@
    Copie les données de data/agoge.db vers MySQL
    ============================================ */
 const { DatabaseSync } = require('node:sqlite');
+const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { getEnv } = require('../server/config');
 
 const SQLITE_DB = path.join(__dirname, '..', 'data', 'agoge.db');
-const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_PORT = parseInt(process.env.DB_PORT || '3306', 10);
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASSWORD = process.env.DB_PASSWORD || '';
-const DB_NAME = process.env.DB_NAME || 'agoge';
+const DB_HOST = getEnv('DB_HOST', { defaultValue: 'localhost' });
+const DB_PORT = parseInt(getEnv('DB_PORT', { defaultValue: '3306' }), 10);
+const DB_USER = getEnv('DB_USER', { defaultValue: 'root' });
+const DB_PASSWORD = getEnv('DB_PASSWORD', { defaultValue: '' });
+const DB_NAME = getEnv('DB_NAME', { defaultValue: 'agoge' });
 
 const TABLES = [
   'users',
@@ -26,8 +28,16 @@ const TABLES = [
   'sync_queue'
 ];
 
+function redactError(error) {
+  const raw = String(error?.message || 'Erreur inconnue');
+  return raw
+    .replace(/\b(SELECT|INSERT|UPDATE|DELETE)\b.*$/gi, '[requête SQL masquée]')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email masqué]')
+    .replace(/\b(?:password|token|secret|api[_-]?key)\b[^\n]*/gi, '[valeur sensible masquée]');
+}
+
 async function migrate() {
-  if (!require('fs').existsSync(SQLITE_DB)) {
+  if (!fs.existsSync(SQLITE_DB)) {
     console.log('ℹ️  Aucun fichier SQLite trouvé (data/agoge.db). Rien à migrer.');
     return;
   }
@@ -52,7 +62,7 @@ async function migrate() {
       await conn.query(`DELETE FROM \`${table}\``);
       await conn.query(`ALTER TABLE \`${table}\` AUTO_INCREMENT = 1`);
 
-      const cols = Object.keys(rows[0]);
+      const cols = Object.keys(rows[0]).filter((c) => typeof c === 'string' && /^[a-zA-Z0-9_]+$/.test(c));
       const placeholders = cols.map(() => '?').join(', ');
       const sql = `INSERT INTO \`${table}\` (\`${cols.join('`, `')}\`) VALUES (${placeholders})`;
 
@@ -67,7 +77,7 @@ async function migrate() {
 
       console.log(`  - ${table}: ${rows.length} ligne(s) migrée(s) ✔`);
     } catch (e) {
-      console.error(`  - ${table}: ERREUR -> ${e.message}`);
+      console.error(`  - ${table}: ERREUR -> ${redactError(e)}`);
     }
   }
 
@@ -78,7 +88,7 @@ async function migrate() {
 }
 
 migrate().catch((e) => {
-  console.error('❌ Échec de la migration :', e.message);
+  console.error('❌ Échec de la migration :', redactError(e));
   process.exit(1);
 });
 

@@ -39,6 +39,9 @@ const BodyPage = (() => {
             <input type="number" id="weight-input" step="0.1" min="20" max="300" placeholder="${latestWeight ? latestWeight.toFixed(1) : '75.0'} kg" value="${latestWeight || ''}">
             <button class="btn btn-primary" onclick="BodyPage.addWeight()">+</button>
           </div>
+          <div style="margin-top:8px">
+            <button class="btn btn-outline" onclick="BodyPage.openCalculator()">${agogeIcon('fire')} Calculateur calorique</button>
+          </div>
         </div>
 
         <div class="chart-container">
@@ -352,6 +355,22 @@ const BodyPage = (() => {
     t._timer = setTimeout(() => t.classList.add('hidden'), 2500);
   }
 
+  // Ouvre le calculateur calorique depuis la page Physique (fallback si NutritionPage absent)
+  function openCalculator() {
+    if (window.NutritionPage && typeof NutritionPage.openCalculator === 'function') {
+      NutritionPage.openCalculator();
+      return;
+    }
+    if (window.CalorieCalculator) {
+      CalorieCalculator.showModal({ onUse: (kcal) => {
+        // si on veut enregistrer ailleurs, on pourrait propager la valeur
+        showToast(`${agogeIcon('check')} Calculateur: ${kcal} kcal`);
+      }});
+      return;
+    }
+    showToast('Calculateur indisponible');
+  }
+
   return {
     render,
     addWeight,
@@ -364,6 +383,7 @@ const BodyPage = (() => {
     measurementModal,
     saveMeasurement,
     removeMeasurement
+    ,openCalculator
   };
 })();
 
