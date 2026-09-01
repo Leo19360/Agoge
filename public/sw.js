@@ -1,5 +1,5 @@
 /* AGOGE Service Worker - PWA offline support */
-const CACHE_NAME = 'agoge-v7';
+const CACHE_NAME = 'agoge-v8';
 const ASSETS = [
   '/',
   '/index.html',
