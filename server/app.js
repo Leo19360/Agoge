@@ -14,6 +14,9 @@ const bodyRoutes = require('./routes/body');
 
 const app = express();
 
+// Cloudflate Tunnel : faire confiance au proxy local
+app.set('trust proxy', 1);
+
 // Dossier uploads : stocké en mémoire/DB pour éviter les problèmes d’hébergement
 // Infinyfree bloque la création de dossiers hors htdocs/public_html.
 const uploadsDir = process.env.UPLOADS_DIR || (process.env.INFINYFREE === '1' ? '/tmp/agoge-uploads' : path.join(__dirname, '..', 'uploads'));
