@@ -137,7 +137,7 @@ app.get('/api/proxy-offs', async (req, res) => {
 
     const offsRes = await fetch(url, {
       headers: {
-        'User-Agent': 'Agoge/1.0',
+        'User-Agent': 'Agoge/1.0 (https://gym-agoge.fr; contact@gym-agoge.fr)',
         'Accept': 'application/json'
       }
     });
