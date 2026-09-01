@@ -91,25 +91,37 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/api/proxy-image', async (req, res) => {
   const imageUrl = req.query.url;
   if (!imageUrl) {
-    return res.status(400).json({ error: 'URL manquante' });
+    return res.status(400).send('URL manquante');
   }
   
   // Vérifier que c'est bien une URL OpenFoodFacts
   if (!imageUrl.includes('openfoodfacts.org') && !imageUrl.includes('openfoodfacts.net')) {
-    return res.status(403).json({ error: 'Domaine non autorisé' });
+    return res.status(403).send('Domaine non autorisé');
   }
   
   try {
-    const https = imageUrl.startsWith('https') ? require('https') : require('http');
-    https.get(imageUrl, (imgRes) => {
-      res.setHeader('Content-Type', imgRes.headers['content-type']);
+    const https = require('https');
+    const http = require('http');
+    const protocol = imageUrl.startsWith('https') ? https : http;
+    
+    protocol.get(imageUrl, (imgRes) => {
+      // Si la réponse distante est une erreur, retourner l'erreur
+      if (imgRes.statusCode !== 200) {
+        return res.status(imgRes.statusCode).send('Image non trouvée');
+      }
+      
+      res.setHeader('Content-Type', imgRes.headers['content-type'] || 'image/jpeg');
       res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 jours
+      res.setHeader('Access-Control-Allow-Origin', '*');
       imgRes.pipe(res);
     }).on('error', (err) => {
-      res.status(500).json({ error: 'Erreur proxy image' });
+      res.status(500).send('Erreur téléchargement image');
+    }).setTimeout(5000, function() {
+      this.abort();
+      res.status(504).send('Timeout');
     });
   } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).send('Erreur serveur');
   }
 });
 

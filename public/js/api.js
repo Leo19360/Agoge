@@ -373,6 +373,7 @@ const API = (() => {
         if (Array.isArray(localResults) && localResults.length > 0) {
           const normalized = localResults.map((r) => ({
             ...r,
+            image: proxyImage(r.image || ''),
             id: r.id || r.code,
             liquid: r.liquid || (r.quantity ? /ml|cl|l\b/i.test(r.quantity) : false),
             _relevance: relevanceScore(r.name || '', normQuery.split(/\s+/).filter(Boolean))
