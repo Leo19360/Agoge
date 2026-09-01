@@ -4,6 +4,7 @@ const path = require('path');
 const db = require('../db');
 const { authMiddleware } = require('./auth');
 
+const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -28,10 +29,11 @@ router.get('/weight', async (req, res) => {
   }
 });
 
-router.post('/weight', async (req, res) => {
+router.post('/weight', [ body('weight').isFloat({ min: 1, max: 500 }), body('date').optional().isISO8601() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { date, weight } = req.body;
   const safeWeight = Number(weight);
-  if (!Number.isFinite(safeWeight) || safeWeight <= 0 || safeWeight > 500) return res.status(400).json({ error: 'Poids requis' });
   try {
     const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
     // Chaque validation de poids est ENREGISTRÉE (aucune suppression) :
@@ -46,7 +48,9 @@ router.post('/weight', async (req, res) => {
   }
 });
 
-router.delete('/weight/:id', async (req, res) => {
+router.delete('/weight/:id', [ param('id').isInt() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const entry = await db.get('SELECT * FROM weight_entries WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!entry) return res.status(404).json({ error: 'Entrée introuvable' });
@@ -67,7 +71,18 @@ router.get('/measurements', async (req, res) => {
   }
 });
 
-router.post('/measurements', async (req, res) => {
+router.post('/measurements', [
+  body('date').optional().isISO8601(),
+  body('waist').optional().isFloat({ min: 0, max: 500 }),
+  body('chest').optional().isFloat({ min: 0, max: 500 }),
+  body('arms').optional().isFloat({ min: 0, max: 500 }),
+  body('thighs').optional().isFloat({ min: 0, max: 500 }),
+  body('hips').optional().isFloat({ min: 0, max: 500 }),
+  body('shoulders').optional().isFloat({ min: 0, max: 500 }),
+  body('notes').optional().isString().isLength({ max: 1000 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { date, waist, chest, arms, thighs, hips, shoulders, notes } = req.body;
   try {
     const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);

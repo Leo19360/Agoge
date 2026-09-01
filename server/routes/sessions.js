@@ -1,6 +1,8 @@
 const express = require('express');
 const db = require('../db');
 const { authMiddleware } = require('./auth');
+const { validationResult } = require('express-validator');
+const validators = require('../validators');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -41,8 +43,10 @@ router.get('/', async (req, res) => {
 });
 
 // Détail d'un programme / d'une séance d'historique
-router.get('/:id(\\d+)', async (req, res) => {
+router.get('/:id(\\d+)', validators.idParam('id'), async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
     if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
     const session = await getSessionFull(sessionId, req.userId);
@@ -54,10 +58,13 @@ router.get('/:id(\\d+)', async (req, res) => {
 });
 
 // Créer un programme permanent (réutilisable à vie)
-router.post('/', async (req, res) => {
-  const { name, notes, exercises } = req.body;
-  const safeName = db.sanitizeText(name, { maxLength: 255 });
-  if (!safeName) return res.status(400).json({ error: 'Nom du programme requis' });
+router.post('/', validators.sessionCreate, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const { name, notes, exercises } = req.body;
+    const safeName = db.sanitizeText(name, { maxLength: 255 });
+    if (!safeName) return res.status(400).json({ error: 'Nom du programme requis' });
   try {
     const info = await db.run(
       'INSERT INTO sessions (user_id, name, date, notes, is_template) VALUES (?,?,?,?,1)',
@@ -93,8 +100,10 @@ router.post('/', async (req, res) => {
 });
 
 // Modifier un programme (nom, exercices, groupes musculaires, objectifs)
-router.put('/:id(\\d+)', async (req, res) => {
+router.put('/:id(\\d+)', validators.sessionUpdate, async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
     if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
     const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', sessionId, req.userId);
@@ -138,8 +147,10 @@ router.put('/:id(\\d+)', async (req, res) => {
 });
 
 // Mise à jour d'un exercice : cocher (done) OU éditer le poids par défaut
-router.put('/exercises/:exId', async (req, res) => {
+router.put('/exercises/:exId', validators.exerciseUpdate, async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const ex = await db.get(`
       SELECT e.* FROM exercises e
       JOIN sessions s ON s.id = e.session_id
@@ -170,8 +181,10 @@ router.put('/exercises/:exId', async (req, res) => {
 });
 
 // Mise à jour d'une série (poids / répétitions réalisés / fait)
-router.put('/sets/:setId', async (req, res) => {
+router.put('/sets/:setId', validators.setUpdate, async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const set = await db.get(`
       SELECT s.* FROM sets s
       JOIN exercises e ON e.id = s.exercise_id
@@ -196,8 +209,10 @@ router.put('/sets/:setId', async (req, res) => {
 });
 
 // Réinitialiser la progression d'un programme (pour recommencer)
-router.post('/:id(\\d+)/reset', async (req, res) => {
+router.post('/:id(\\d+)/reset', validators.idParam('id'), async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
     if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
     const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', sessionId, req.userId);
@@ -217,8 +232,10 @@ router.post('/:id(\\d+)/reset', async (req, res) => {
 });
 
 // Terminer une séance : enregistre une copie datée dans l'historique puis reset le programme
-router.post('/:id(\\d+)/complete', async (req, res) => {
+router.post('/:id(\\d+)/complete', validators.idParam('id'), async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const sessionId = db.parsePositiveInt(req.params.id, 1, 1000000);
     if (!sessionId) return res.status(400).json({ error: 'Identifiant invalide' });
     const session = await getSessionFull(sessionId, req.userId);
@@ -315,8 +332,10 @@ router.post('/library', async (req, res) => {
 
 // ---- SÉANCE ACTIVE (entraînement en cours) ----
 // Démarrer une séance : marque le programme comme "en cours"
-router.post('/:id(\\d+)/start', async (req, res) => {
+router.post('/:id(\\d+)/start', validators.idParam('id'), async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const session = await db.get('SELECT * FROM sessions WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!session) return res.status(404).json({ error: 'Séance introuvable' });
     if (!session.is_template) {

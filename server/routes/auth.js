@@ -2,6 +2,9 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const { body, validationResult } = require('express-validator');
+const rateLimit = require('express-rate-limit');
+const { getEnv, isProduction } = require('../config');
 
 const router = express.Router();
 
@@ -12,18 +15,26 @@ const { getEnv } = require('../config');
 let JWT_SECRET;
 function getSecret() {
   if (!JWT_SECRET) {
-    JWT_SECRET = getEnv('JWT_SECRET', { defaultValue: '' }) || getEnv('SESSION_SECRET', { defaultValue: '' }) || 'agoge-production-secret-change-me';
-    if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
-      console.warn('⚠️ JWT_SECRET absent, utilisation d\'un fallback local pour éviter un blocage de l\'authentification.');
+    JWT_SECRET = getEnv('JWT_SECRET', { defaultValue: '' }) || getEnv('SESSION_SECRET', { defaultValue: '' }) || '';
+    if (isProduction && !JWT_SECRET) {
+      // In production we must not run with an empty secret
+      throw new Error('JWT_SECRET is required in production');
+    }
+    if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET && !JWT_SECRET) {
+      console.warn('⚠️ JWT_SECRET absent, utilisation d\'un fallback local (vide) — change en production.');
     }
   }
-  return JWT_SECRET;
+  return JWT_SECRET || 'agoge-development-secret';
 }
 
-// Rate limiting désactivé temporairement pour éviter les blocages inutiles
-function rateLimit() {
-  return false;
-}
+// Rate limiter pour routes sensibles (inscription / connexion)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 6, // limit each IP to 6 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives, réessaie plus tard' }
+});
 
 function signToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, getSecret(), { expiresIn: '30d' });
@@ -58,7 +69,15 @@ function validateOptionalInt(val, min, max) {
 }
 
 // Inscription enrichie
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 }),
+  body('name').trim().notEmpty().isLength({ max: 255 }),
+  body('age').optional().isInt({ min: 10, max: 120 }),
+  body('height').optional().isInt({ min: 100, max: 250 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { email, password, password_confirm, name, first_name, birth_date, sex, age, height, weight, goal } = req.body;
   const normalizedPassword = String(password || '').trim();
   const confirmedPassword = String(password_confirm === undefined ? password : password_confirm || '').trim();
@@ -109,7 +128,12 @@ router.post('/register', async (req, res) => {
 });
 
 // Connexion
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, [
+  body('email').isEmail().normalizeEmail(),
+  body('password').notEmpty()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { email, password } = req.body;
 
   // Rate limiting désactivé

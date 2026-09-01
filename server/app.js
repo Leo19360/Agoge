@@ -3,6 +3,7 @@
    ============================================ */
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
 
@@ -31,7 +32,41 @@ function ensureUploadsDir() {
 
 ensureUploadsDir();
 
-app.use(cors());
+// Security headers (Helmet)
+try {
+  app.use(helmet({
+    // default helmet options
+  }));
+  // Content Security Policy: allow self and data for images; allow inline scripts/styles temporarily (app uses inline handlers)
+  app.use(helmet.contentSecurityPolicy({
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https:'],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"]
+    }
+  }));
+  // HSTS for production
+  app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }));
+} catch (e) {
+  console.warn('⚠️ Helmet non chargé :', e.message);
+}
+
+// CORS: restrict origins in production via CORS_ORIGINS env (comma-separated)
+const { getEnv, isProduction } = require('./config');
+const corsOrigins = getEnv('CORS_ORIGINS', { defaultValue: '' });
+if (corsOrigins && corsOrigins.trim()) {
+  const allowed = corsOrigins.split(',').map((s) => s.trim()).filter(Boolean);
+  app.use(cors({ origin: function(origin, cb) { if (!origin) return cb(null, true); return cb(null, allowed.indexOf(origin) !== -1); }, optionsSuccessStatus: 200 }));
+} else {
+  // default: allow all in dev, restrict in production
+  app.use(cors({ origin: isProduction ? false : true }));
+}
+
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -62,4 +97,14 @@ app.get('*', (req, res) => {
 });
 
 module.exports = app;
+
+// Global error handler to avoid leaking stack traces in production
+app.use((err, req, res, next) => {
+  console.error(err && err.stack ? err.stack : err);
+  if (isProduction) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  } else {
+    res.status(500).json({ error: err && err.message ? err.message : 'Erreur serveur' });
+  }
+});
 

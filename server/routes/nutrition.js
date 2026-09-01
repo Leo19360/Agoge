@@ -5,6 +5,7 @@ const { authMiddleware } = require('./auth');
 const { mergeNutritionResults, loadReferenceFoods } = require('../foodSearch');
 const { calculateRecipeTotals, resolveRecipeIngredients } = require('../recipeEngine');
 
+const { body, query, param, validationResult } = require('express-validator');
 const router = express.Router();
 router.use(authMiddleware);
 
@@ -36,7 +37,9 @@ function normalizeMealType(mt) {
 }
 
 // Repas d'une date
-router.get('/entries', async (req, res) => {
+router.get('/entries', [ query('date').optional().isISO8601() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const date = db.normalizeDate(req.query.date) || new Date().toISOString().slice(0, 10);
     const entries = await db.all('SELECT * FROM food_entries WHERE user_id = ? AND date = ? ORDER BY id DESC', req.userId, date);
@@ -49,7 +52,19 @@ router.get('/entries', async (req, res) => {
 });
 
 // Ajouter un aliment
-router.post('/entries', async (req, res) => {
+router.post('/entries', [
+  body('food_name').isString().trim().notEmpty().isLength({ max: 255 }),
+  body('quantity').optional().isFloat({ min: 0, max: 10000 }),
+  body('unit').optional().isString().isLength({ max: 10 }),
+  body('meal_type').optional().isString(),
+  body('calories').optional().isNumeric(),
+  body('proteins').optional().isNumeric(),
+  body('carbs').optional().isNumeric(),
+  body('fats').optional().isNumeric(),
+  body('date').optional().isISO8601()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { date, food_name, quantity, unit, meal_type, calories, proteins, carbs, fats } = req.body;
   const safeName = db.sanitizeText(food_name, { maxLength: 255 });
   if (!safeName) return res.status(400).json({ error: 'Nom de l\'aliment requis' });
@@ -72,7 +87,19 @@ router.post('/entries', async (req, res) => {
 });
 
 // Modifier un repas (quantité, type de repas, macros — recalculés côté client)
-router.put('/entries/:id', async (req, res) => {
+router.put('/entries/:id', [
+  param('id').isInt(),
+  body('quantity').optional().isFloat({ min: 0, max: 10000 }),
+  body('unit').optional().isString().isLength({ max: 10 }),
+  body('meal_type').optional().isString(),
+  body('calories').optional().isNumeric(),
+  body('proteins').optional().isNumeric(),
+  body('carbs').optional().isNumeric(),
+  body('fats').optional().isNumeric(),
+  body('food_name').optional().isString().isLength({ max: 255 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const entry = await db.get('SELECT * FROM food_entries WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!entry) return res.status(404).json({ error: 'Entrée introuvable' });
@@ -106,7 +133,9 @@ router.put('/entries/:id', async (req, res) => {
 });
 
 // Supprimer un aliment
-router.delete('/entries/:id', async (req, res) => {
+router.delete('/entries/:id', [ param('id').isInt() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const entry = await db.get('SELECT * FROM food_entries WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!entry) return res.status(404).json({ error: 'Entrée introuvable' });
@@ -118,7 +147,14 @@ router.delete('/entries/:id', async (req, res) => {
 });
 
 // Objectifs
-router.put('/goals', async (req, res) => {
+router.put('/goals', [
+  body('calories').isFloat({ min: 0 }),
+  body('proteins').optional().isFloat({ min: 0 }),
+  body('carbs').optional().isFloat({ min: 0 }),
+  body('fats').optional().isFloat({ min: 0 })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { calories, proteins, carbs, fats } = req.body;
   try {
     const safeCalories = safeNumber(calories, 0);
@@ -142,7 +178,9 @@ router.put('/goals', async (req, res) => {
 
 // ---- SUIVI D'EAU (water_entries) ----
 // Récupère les entrées d'eau d'une date + total + objectif
-router.get('/water', async (req, res) => {
+router.get('/water', [ query('date').optional().isISO8601() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const date = req.query.date || new Date().toISOString().slice(0, 10);
     const entries = await db.all(
@@ -163,7 +201,9 @@ router.get('/water', async (req, res) => {
 });
 
 // Ajoute une entrée d'eau (verre d'eau)
-router.post('/water', async (req, res) => {
+router.post('/water', [ body('amount_ml').isInt({ min: 1, max: 2000 }), body('date').optional().isISO8601() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { amount_ml, date } = req.body;
   try {
     const d = db.normalizeDate(date) || new Date().toISOString().slice(0, 10);
@@ -183,7 +223,9 @@ router.post('/water', async (req, res) => {
 });
 
 // Supprime une entrée d'eau
-router.delete('/water/:id', async (req, res) => {
+router.delete('/water/:id', [ param('id').isInt() ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   try {
     const entry = await db.get('SELECT * FROM water_entries WHERE id = ? AND user_id = ?', req.params.id, req.userId);
     if (!entry) return res.status(404).json({ error: 'Entrée introuvable' });
@@ -195,7 +237,9 @@ router.delete('/water/:id', async (req, res) => {
 });
 
 // Met à jour l'objectif d'eau quotidien
-router.put('/water-goal', async (req, res) => {
+router.put('/water-goal', [ body('goal_ml').isInt({ min: 100, max: 10000 }) ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { goal_ml } = req.body;
   try {
     const g = db.parsePositiveInt(goal_ml, 100, 10000);
@@ -428,8 +472,13 @@ router.get('/recipes', async (req, res) => {
   }
 });
 
-router.post('/recipes', async (req, res) => {
+const { validationResult } = require('express-validator');
+const validators = require('../validators');
+
+router.post('/recipes', validators.recipeCreate, async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     const { name, description, ingredients = [] } = req.body;
     if (!name || !Array.isArray(ingredients) || ingredients.length === 0) {
       return res.status(400).json({ error: 'Nom et ingrédients requis' });
