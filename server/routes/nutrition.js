@@ -445,31 +445,77 @@ router.get('/search', async (req, res) => {
 // Recipes
 router.get('/recipes', async (req, res) => {
   try {
-    const systemUser = await db.get('SELECT id FROM users WHERE email = ? LIMIT 1', 'system@agoge.local');
+    const systemUser = await db.get(
+      'SELECT id FROM users WHERE email = ? LIMIT 1',
+      'system@agoge.local'
+    );
+
     const systemUserId = systemUser ? Number(systemUser.id) : null;
+
     const params = [req.userId];
-    const whereClause = systemUserId !== null ? 'WHERE r.user_id = ? OR r.user_id = ?' : 'WHERE r.user_id = ?';
-    if (systemUserId !== null) params.push(systemUserId);
+
+    const whereClause = systemUserId !== null
+      ? 'WHERE r.user_id = ? OR r.user_id = ?'
+      : 'WHERE r.user_id = ?';
+
+    if (systemUserId !== null) {
+      params.push(systemUserId);
+    }
 
     const recipes = await db.all(
-      `SELECT r.id, r.name, r.description, r.serving_size_g, r.calories, r.proteins, r.carbs, r.fats,
-              JSON_ARRAYAGG(JSON_OBJECT('name', ri.name, 'grams', ri.grams, 'calories_per_100g', ri.calories_per_100g, 'protein_g_100g', ri.protein_g_100g, 'carbs_g_100g', ri.carbs_g_100g, 'fat_g_100g', ri.fat_g_100g)) AS ingredients
-       FROM recipes r
-       LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
-       ${whereClause}
-       GROUP BY r.id
-       ORDER BY r.id DESC`,
+      `SELECT
+        r.id,
+        r.name,
+        r.description,
+        r.serving_size_g,
+        r.calories,
+        r.proteins,
+        r.carbs,
+        r.fats,
+        JSON_ARRAYAGG(
+          JSON_OBJECT(
+            'name', ri.name,
+            'grams', ri.grams,
+            'calories_per_100g', ri.calories_per_100g,
+            'protein_g_100g', ri.protein_g_100g,
+            'carbs_g_100g', ri.carbs_g_100g,
+            'fat_g_100g', ri.fat_g_100g
+          )
+        ) AS ingredients
+      FROM recipes r
+      LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
+      ${whereClause}
+      GROUP BY
+        r.id,
+        r.name,
+        r.description,
+        r.serving_size_g,
+        r.calories,
+        r.proteins,
+        r.carbs,
+        r.fats
+      ORDER BY r.id DESC`,
       ...params
     );
 
     const normalized = recipes.map((recipe) => ({
       ...recipe,
-      ingredients: recipe.ingredients ? JSON.parse(recipe.ingredients) : []
+      ingredients: Array.isArray(recipe.ingredients)
+        ? recipe.ingredients
+        : recipe.ingredients
+          ? JSON.parse(recipe.ingredients)
+          : []
     }));
 
     res.json(normalized);
+
   } catch (e) {
-    res.status(500).json({ error: 'Impossible de charger les recettes' });
+    console.error('❌ ERREUR RECIPES COMPLÈTE :', e);
+
+    res.status(500).json({
+      error: 'Impossible de charger les recettes',
+      debug: e.message
+    });
   }
 });
 
