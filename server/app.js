@@ -35,28 +35,28 @@ function ensureUploadsDir() {
 
 ensureUploadsDir();
 
-// Security headers (Helmet)
-try {
-  app.use(helmet({
-    // default helmet options
-  }));
-  // Content Security Policy: allow self and data for images; allow inline scripts/styles temporarily (app uses inline handlers)
-  app.use(helmet.contentSecurityPolicy({
-    useDefaults: true,
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https:'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https:'],
-      frameAncestors: ["'none'"],
-      baseUri: ["'self'"]
-    }
-  }));
-  // HSTS for production
+// Security headers (Helmet) - Appliquer une seule fois
+app.use(helmet());
+
+// Content Security Policy personnalisée
+app.use((req, res, next) => {
+  const cspHeader = "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' data: https://fonts.gstatic.com; " +
+    "img-src 'self' data: https:; " +
+    "connect-src 'self' https: http:; " +
+    "frame-ancestors 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'self'";
+  
+  res.setHeader('Content-Security-Policy', cspHeader);
+  next();
+});
+
+// HSTS for production
+if (process.env.NODE_ENV === 'production') {
   app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }));
-} catch (e) {
-  console.warn('⚠️ Helmet non chargé :', e.message);
 }
 
 // CORS: restrict origins in production via CORS_ORIGINS env (comma-separated)
