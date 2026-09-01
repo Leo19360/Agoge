@@ -10,7 +10,6 @@ const router = express.Router();
 
 // JWT_SECRET : en production, il devrait être défini via l'environnement,
 // mais un fallback local stable évite les blocages si la variable n'a pas encore été injectée.
-const { getEnv } = require('../config');
 
 let JWT_SECRET;
 function getSecret() {
