@@ -128,49 +128,36 @@ app.get('/api/proxy-image', async (req, res) => {
 // OpenFoodFacts API proxy (contourne CORS)
 app.get('/api/proxy-offs', async (req, res) => {
   try {
-    const https = require('https');
     const queryString = new URLSearchParams(req.query).toString();
-    const url = `https://world.openfoodfacts.org/cgi/search.pl?${queryString}`;
 
-    console.log('🔍 Requête OFFS :', url);
+    const url =
+      `https://world.openfoodfacts.org/cgi/search.pl?${queryString}`;
 
-    https.get(url, (offsRes) => {
-      let data = '';
+    console.log('Recherche OpenFoodFacts :', url);
 
-      console.log('📡 Statut OFFS :', offsRes.statusCode);
-
-      offsRes.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      offsRes.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          res.json(json);
-        } catch (e) {
-          console.error('❌ ERREUR PARSING OFFS :', e.message);
-          res.status(500).json({
-            error: 'Erreur parsing OFFS',
-            debug: e.message,
-            response: data.substring(0, 500)
-          });
-        }
-      });
-    }).on('error', (err) => {
-      console.error('❌ ERREUR REQUÊTE OFFS :', err);
-      res.status(500).json({
-        error: 'Erreur requête OFFS',
-        debug: err.message,
-        code: err.code
-      });
+    const offsRes = await fetch(url, {
+      headers: {
+        'User-Agent': 'Agoge/1.0',
+        'Accept': 'application/json'
+      }
     });
 
+    console.log('Statut OpenFoodFacts :', offsRes.status);
+
+    if (!offsRes.ok) {
+      throw new Error(`OpenFoodFacts HTTP ${offsRes.status}`);
+    }
+
+    const data = await offsRes.json();
+
+    res.json(data);
+
   } catch (err) {
-    console.error('❌ ERREUR SERVEUR PROXY OFFS :', err);
+    console.error('ERREUR PROXY OFFS :', err);
+
     res.status(500).json({
-      error: 'Erreur serveur',
-      debug: err.message,
-      stack: err.stack
+      error: 'Erreur serveur OpenFoodFacts',
+      details: err.message
     });
   }
 });
