@@ -5,6 +5,15 @@ const API = (() => {
   const BASE = '';
   const OFFS = 'https://world.openfoodfacts.org/cgi/search.pl';
 
+  // Helper pour proxy les images OpenFoodFacts et éviter les problèmes CORS
+  function proxyImage(imageUrl) {
+    if (!imageUrl) return '';
+    if (imageUrl.includes('openfoodfacts.org') || imageUrl.includes('openfoodfacts.net')) {
+      return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+    }
+    return imageUrl;
+  }
+
   function getConfiguredApiBase() {
     if (typeof window === 'undefined' || !window) return null;
     const candidates = [
@@ -392,7 +401,7 @@ const API = (() => {
           name,
           brands: p.brands || '',
           quantity: p.quantity || '',
-          image: p.image_front_url || '',
+          image: proxyImage(p.image_front_url || ''),
           liquid,
           calories: kcalFromNutriments(n),
           proteins: normNum(n.proteins_100g),
@@ -436,7 +445,7 @@ const API = (() => {
       name: cleanName(p) || 'Aliment',
       brands: p.brands || '',
       quantity: p.quantity || '',
-      image: p.image_front_url || p.image_url || '',
+      image: proxyImage(p.image_front_url || p.image_url || ''),
       liquid,
       calories: kcalFromNutriments(n),
       proteins: normNum(n.proteins_100g),

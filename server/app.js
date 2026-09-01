@@ -46,8 +46,8 @@ app.use((req, res, next) => {
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' data: https://fonts.gstatic.com; " +
-    "img-src 'self' data: blob: https:; " +
-    "connect-src 'self' https: http: ws: wss:; " +
+    "img-src 'self' data: blob: https: https://static.openfoodfacts.org https://world.openfoodfacts.org; " +
+    "connect-src 'self' https: http: ws: wss: https://world.openfoodfacts.org https://static.openfoodfacts.org; " +
     "frame-ancestors 'none'; " +
     "base-uri 'self'; " +
     "form-action 'self'; " +
@@ -57,7 +57,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
   next();
 });
 
@@ -86,6 +86,32 @@ app.use('/uploads', express.static(uploadsDir, { fallthrough: true }));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Image proxy pour OpenFoodFacts (contourne les problèmes CORS)
+app.get('/api/proxy-image', async (req, res) => {
+  const imageUrl = req.query.url;
+  if (!imageUrl) {
+    return res.status(400).json({ error: 'URL manquante' });
+  }
+  
+  // Vérifier que c'est bien une URL OpenFoodFacts
+  if (!imageUrl.includes('openfoodfacts.org') && !imageUrl.includes('openfoodfacts.net')) {
+    return res.status(403).json({ error: 'Domaine non autorisé' });
+  }
+  
+  try {
+    const https = imageUrl.startsWith('https') ? require('https') : require('http');
+    https.get(imageUrl, (imgRes) => {
+      res.setHeader('Content-Type', imgRes.headers['content-type']);
+      res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 jours
+      imgRes.pipe(res);
+    }).on('error', (err) => {
+      res.status(500).json({ error: 'Erreur proxy image' });
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 
 // Routes API
 app.use('/api/auth', authRoutes);

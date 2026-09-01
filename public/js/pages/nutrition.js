@@ -227,7 +227,7 @@ const NutritionPage = (() => {
 
   function foodResultHtml(r, i) {
     const img = r.image
-      ? `<img src="${r.image}" alt="" loading="lazy" onerror="this.style.display='none'">`
+      ? `<img src="${r.image}" alt="" loading="lazy" crossorigin="anonymous" onerror="this.style.display='none'">`
       : `<div class="f-thumb f-thumb-placeholder">${agogeIcon('bowlFood')}</div>`;
     return `
       <div class="food-result" onclick="NutritionPage.showFoodDetail(${i})">
@@ -359,7 +359,7 @@ Riz blanc cuit 250g"></textarea>
 
   function renderFoodModal(food) {
     const img = food.image
-      ? `<img src="${food.image}" alt="${food.name}" class="f-detail-img" onerror="this.style.display='none'">`
+      ? `<img src="${food.image}" alt="${food.name}" class="f-detail-img" crossorigin="anonymous" onerror="this.style.display='none'">`
       : `<div class="f-detail-img f-detail-img-placeholder">${agogeIcon('bowlFood')}</div>`;
     const per = food.liquid ? '100 ml' : '100 g';
     const novaLabel = food.nova ? `• NOVA ${food.nova}` : '';
