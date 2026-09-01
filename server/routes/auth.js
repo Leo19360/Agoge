@@ -147,6 +147,7 @@ router.post('/login', authLimiter, [
     }
     res.json({ token: signToken(user), user: cleanUser(user) });
   } catch (e) {
+    console.error('❌ Erreur login:', e);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
