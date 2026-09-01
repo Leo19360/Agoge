@@ -61,10 +61,24 @@ function cacheFirst(request) {
 // Fetch : stratégie network-first pour le frontend, avec fallback cache pour les API et assets
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+
+  // IMPORTANT :
+  // Le service worker ne gère que les requêtes provenant
+  // de notre propre site.
+  // Les images externes (Open Food Facts, etc.) passent
+  // directement par le navigateur.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
   const isApi = url.pathname.startsWith('/api/');
-  const isDocument = event.request.mode === 'navigate' || event.request.destination === 'document';
-  const isFrontendAsset = ['script', 'style', 'manifest', 'image'].includes(event.request.destination)
-    || ['/index.html', '/logo.png', '/manifest.json'].includes(url.pathname);
+  const isDocument =
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document';
+
+  const isFrontendAsset =
+    ['script', 'style', 'manifest', 'image'].includes(event.request.destination) ||
+    ['/index.html', '/logo.png', '/manifest.json'].includes(url.pathname);
 
   if (isApi) {
     event.respondWith(networkFirst(event.request));
@@ -72,7 +86,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isDocument || isFrontendAsset) {
-    event.respondWith(networkFirst(event.request).catch(() => caches.match('/index.html')));
+    event.respondWith(
+      networkFirst(event.request).catch(() => caches.match('/index.html'))
+    );
     return;
   }
 
