@@ -81,10 +81,8 @@ router.post('/register', authLimiter, [
   const normalizedPassword = String(password || '').trim();
   const confirmedPassword = String(password_confirm === undefined ? password : password_confirm || '').trim();
 
-  // Rate limiting désactivé
-  if (rateLimit()) {
-    return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 minutes' });
-  }
+  // Le rate limiter `authLimiter` est appliqué en tant que middleware sur la route.
+  // Ne pas appeler `rateLimit()` ici (c'était une fausse vérification qui renvoyait 429).
 
   if (!email || !password || !name) {
     return res.status(400).json({ error: 'Email, mot de passe et nom sont requis' });
@@ -135,10 +133,8 @@ router.post('/login', authLimiter, [
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
   const { email, password } = req.body;
 
-  // Rate limiting désactivé
-  if (rateLimit()) {
-    return res.status(429).json({ error: 'Trop de tentatives, réessaie dans 15 minutes' });
-  }
+  // Le rate limiter `authLimiter` est appliqué en tant que middleware sur la route.
+  // Ne pas appeler `rateLimit()` ici.
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis' });

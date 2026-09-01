@@ -35,8 +35,12 @@ self.addEventListener('activate', (event) => {
 });
 
 function cacheResponse(request, response) {
+  // Ne pas mettre en cache les requêtes non-GET (POST/PUT/DELETE). Cache API accepte principalement GET.
+  if (request.method && request.method.toUpperCase() !== 'GET') {
+    return Promise.resolve(response);
+  }
   return caches.open(CACHE_NAME).then((cache) => {
-    cache.put(request, response.clone());
+    cache.put(request, response.clone()).catch(() => {/* ignore cache put errors */});
     return response;
   });
 }
