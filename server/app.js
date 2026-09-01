@@ -35,26 +35,33 @@ function ensureUploadsDir() {
 
 ensureUploadsDir();
 
-// Security headers (Helmet) - Appliquer une seule fois
-app.use(helmet());
+// Security headers (Helmet) - configuration pour Debian + Cloudflare Tunnel
+app.use(helmet({
+  contentSecurityPolicy: false  // On gère le CSP manuellement
+}));
 
-// Content Security Policy personnalisée
+// Content Security Policy personnalisée - Permissive pour fonctionner avec Cloudflare
 app.use((req, res, next) => {
-  const cspHeader = "default-src 'self'; " +
+  const cspHeader = "default-src 'self' https:; " +
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
     "font-src 'self' data: https://fonts.gstatic.com; " +
-    "img-src 'self' data: https:; " +
-    "connect-src 'self' https: http:; " +
+    "img-src 'self' data: blob: https:; " +
+    "connect-src 'self' https: http: ws: wss:; " +
     "frame-ancestors 'none'; " +
     "base-uri 'self'; " +
-    "form-action 'self'";
+    "form-action 'self'; " +
+    "media-src 'self' https: data: blob:";
   
   res.setHeader('Content-Security-Policy', cspHeader);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
 
-// HSTS for production
+// HSTS for production (attention: sur Cloudflare, gérer via dashboard)
 if (process.env.NODE_ENV === 'production') {
   app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }));
 }
