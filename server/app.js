@@ -131,22 +131,47 @@ app.get('/api/proxy-offs', async (req, res) => {
     const https = require('https');
     const queryString = new URLSearchParams(req.query).toString();
     const url = `https://world.openfoodfacts.org/cgi/search.pl?${queryString}`;
-    
+
+    console.log('🔍 Requête OFFS :', url);
+
     https.get(url, (offsRes) => {
       let data = '';
-      offsRes.on('data', chunk => data += chunk);
+
+      console.log('📡 Statut OFFS :', offsRes.statusCode);
+
+      offsRes.on('data', (chunk) => {
+        data += chunk;
+      });
+
       offsRes.on('end', () => {
         try {
-          res.json(JSON.parse(data));
+          const json = JSON.parse(data);
+          res.json(json);
         } catch (e) {
-          res.status(500).json({ error: 'Erreur parsing OFFS' });
+          console.error('❌ ERREUR PARSING OFFS :', e.message);
+          res.status(500).json({
+            error: 'Erreur parsing OFFS',
+            debug: e.message,
+            response: data.substring(0, 500)
+          });
         }
       });
     }).on('error', (err) => {
-      res.status(500).json({ error: 'Erreur requête OFFS' });
+      console.error('❌ ERREUR REQUÊTE OFFS :', err);
+      res.status(500).json({
+        error: 'Erreur requête OFFS',
+        debug: err.message,
+        code: err.code
+      });
     });
+
   } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('❌ ERREUR SERVEUR PROXY OFFS :', err);
+    res.status(500).json({
+      error: 'Erreur serveur',
+      debug: err.message,
+      stack: err.stack
+    });
   }
 });
 
